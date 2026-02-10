@@ -26,6 +26,7 @@ import torch
 from torchdata.stateful_dataloader import StatefulDataLoader
 from transformers import AutoProcessor
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from nemo_rl.scheduler.scheduler_framework import NemoRequestScheduler
 
 from nemo_rl.algorithms.advantage_estimator import (
     GRPOAdvantageEstimator,
@@ -524,7 +525,7 @@ def setup(
     def init_vllm():
         """Initialize vLLM generation workers."""
         t0 = time.perf_counter()
-        pg = VllmGeneration(cluster=inference_cluster, config=generation_config)
+        pg = VllmGeneration(cluster=inference_cluster, config=generation_config, scheduler=scheduler)
         pg.finish_generation()
         return pg, time.perf_counter() - t0
 
@@ -607,6 +608,11 @@ def setup(
 
         policy, policy_time = init_policy()
         worker_init_timing_metrics["policy_init_time_s"] = policy_time
+
+    scheduler = None
+    if generation_config["scheduler"] == "enabled":
+        scheduler = NemoRequestScheduler()
+
 
     elif backend == "vllm":
         # vLLM generation: setup config, then initialize with policy

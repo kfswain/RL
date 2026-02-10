@@ -98,6 +98,7 @@ COPY --from=nemo-rl nemo_rl/__init__.py nemo_rl/package_info.py ./nemo_rl/
 COPY --from=nemo-rl tools/build-custom-vllm.sh ./tools/build-custom-vllm.sh
 COPY --from=nemo-rl --link research/ ./research/
 COPY --from=nemo-rl --link 3rdparty/ ./3rdparty/
+COPY --from=py-scheduler / /opt/py-inference-scheduler
 
 RUN --mount=type=ssh <<"EOF" bash -exu
 uv venv --seed
@@ -112,9 +113,9 @@ fi
 # Do everything in one layer to prevent large layers.
 
 # The venv is symlinked to avoid bloating the layer size
-uv sync --link-mode symlink --locked --no-install-project
+uv sync --link-mode symlink --no-install-project
 uv sync --link-mode symlink --locked --extra vllm --no-install-project
-uv sync --link-mode symlink --locked --extra sglang --no-install-project
+# uv sync --link-mode symlink --locked --extra sglang --no-install-project
 uv sync --link-mode symlink --locked --extra mcore --no-install-project
 uv sync --link-mode symlink --locked --extra automodel --no-install-project
 uv sync --link-mode symlink --locked --all-groups --no-install-project

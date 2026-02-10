@@ -41,6 +41,8 @@ from nemo_rl.models.generation.vllm.utils import (
     aggregate_spec_decode_counters,
     compute_spec_decode_metrics,
 )
+from nemo_rl.scheduler.scheduler_framework import NemoRequestScheduler
+from scheduling.types import Endpoint, LLMRequest
 
 # Global thresholds for top_k and top_p validation.
 # While top-k/p are not supported, these values allow for token filtering while the logprobs should be compatible.
@@ -53,6 +55,7 @@ class VllmGeneration(GenerationInterface):
     def __init__(
         self,
         cluster: RayVirtualCluster,
+        scheduler: Optional[NemoRequestScheduler],  # Replace with actual scheduler type if available
         config: VllmConfig,
         name_prefix: str = "vllm_policy",
         workers_per_node: Optional[Union[int, list[int]]] = None,
@@ -222,6 +225,10 @@ class VllmGeneration(GenerationInterface):
             f"Data parallel size mismatch. Expected {self.dp_size}, got {self.worker_group.dp_size}"
         )
 
+
+        # Use the python scheduler to handle scheduling of workers\
+        if scheduler is not None:
+            self.scheduler = scheduler
         # Used to track the round-robin selection of worker groups for generate_async
         self.current_generate_dp_shard_idx = 0
 
@@ -607,10 +614,16 @@ class VllmGeneration(GenerationInterface):
         if not data_validation_fn(data):
             return
 
-        # Determine the leader worker for the current data parallel shard
-        leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
-            self.current_generate_dp_shard_idx
-        )
+        print(f"Worker metadata: {self.worker_group.worker_metadata}")
+        print(f"request data{data.keys()} with batch size {len(data)}")
+        if self.scheduler is not None:
+            sched_req_format = LLMRequest(request_id="1", body=data, target_model=None)
+            self.scheduler.run(request=sched_req_format, candidates=[Endpoint(name=str(index)) for index in range(self.worker_group.dp_size)])
+        else:
+            # Determine the leader worker for the current data parallel shard
+            leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
+                self.current_generate_dp_shard_idx
+            )
 
         # Run the async method on the selected leader worker
         worker_gen_proxy = self.worker_group.run_single_worker_single_data(
