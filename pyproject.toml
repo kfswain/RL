@@ -53,6 +53,7 @@ dependencies = [
   "nccl4py",                                                                                                          # for non-colocated refit
   "cuda-bindings",                                                                                                    # for non-colocated refit
   "pybase64",                                                                                                         # for sglang refit
+  "py-inference-scheduler",
 ]
 
 [project.optional-dependencies]
@@ -187,6 +188,7 @@ causal-conv1d = { git = "https://github.com/Dao-AILab/causal-conv1d", rev = "67e
 mamba-ssm = { git = "https://github.com/state-spaces/mamba.git", rev = "d68d16ed7d5d5164eb5a57c0285f3b7eb8394ec1" }
 nv-grouped-gemm = { git = "https://github.com/fanshiqing/grouped_gemm", tag = "v1.1.4.post7" }
 sgl-kernel = { git = "https://github.com/sgl-project/sglang", tag = "v0.5.7", subdirectory = "sgl-kernel" }
+py-inference-scheduler = { path = "../py-inference-scheduler" }
 
 [tool.uv.workspace]
 members = [
