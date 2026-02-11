@@ -25,6 +25,7 @@ class NemoRequestScheduler:
             prefix_profile.name: prefix_profile
         })
         self.scheduler = Scheduler.new_with_config(config)
+        print("Scheduler initialized with profile ray_example")
     
     def run(self, request: LLMRequest, candidates: Sequence[Endpoint]) -> Endpoint:
         scheduler_output = self.scheduler.schedule(request, candidates)

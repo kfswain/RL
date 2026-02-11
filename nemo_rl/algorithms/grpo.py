@@ -597,6 +597,10 @@ def setup(
 
         return policy_generation, policy
 
+    scheduler = None
+    if generation_config["scheduler"] == "enabled":
+        scheduler = NemoRequestScheduler()
+
     # Handle generation-specific setup
     if backend == "megatron":
         # Megatron generation: policy_generation is None, only initialize policy
@@ -608,11 +612,6 @@ def setup(
 
         policy, policy_time = init_policy()
         worker_init_timing_metrics["policy_init_time_s"] = policy_time
-
-    scheduler = None
-    if generation_config["scheduler"] == "enabled":
-        scheduler = NemoRequestScheduler()
-
 
     elif backend == "vllm":
         # vLLM generation: setup config, then initialize with policy
