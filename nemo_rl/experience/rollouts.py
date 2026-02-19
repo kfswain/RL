@@ -664,6 +664,8 @@ async def run_sample_multi_turn_rollout(
     current_stop_strings = initial_sample_state.get("stop_strings", None)
     task_name = initial_sample_state["task_name"]
 
+    print(f"Kellen 1: {updated_message_log}\n")
+
     # Sample-level metrics
     total_reward = 0.0
     turn_count = 0
