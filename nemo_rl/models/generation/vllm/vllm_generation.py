@@ -616,6 +616,7 @@ class VllmGeneration(GenerationInterface):
             return
 
         print(f"Worker metadata: {self.worker_group.worker_metadata}")
+        print(f"")
         if self.scheduler is not None:
             # this is a total hack till we update the py-scheduler to accept tensors 
             # also, async sends a single prompt, which is why we can 0 index here

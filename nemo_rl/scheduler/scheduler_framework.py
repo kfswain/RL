@@ -20,7 +20,7 @@ from typing import (
 
 class NemoRequestScheduler:
     def __init__(self):
-        prefix_profile = SchedulerProfile(name="ray_example").with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(MaxScorePicker())
+        prefix_profile = SchedulerProfile(name="ray_example").with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(BlindForthPicker())
         config = SchedulerConfig(profile_handler=SingleProfileHandler(), profiles={
             prefix_profile.name: prefix_profile
         })
@@ -54,6 +54,17 @@ class MaxScorePicker(PickerPlugin):
         if not scored_endpoints:
             return None
         # pick the endpoint with the highest score
+        return max(scored_endpoints, key=lambda se: se.score)
+    
+class BlindForthPicker(PickerPlugin):
+    def pick(self, cycle_state: CycleState, request: LLMRequest, scored_endpoints: Sequence[ScoredEndpoint]) -> Optional[ScoredEndpoint]:
+        if not scored_endpoints:
+            return None
+        # pick a random endpoint
+        num_to_remove = len(scored_endpoints) // 4
+        for _ in range(num_to_remove):
+            scored_endpoints.pop(random.randint(0, len(scored_endpoints) - 1))
+        print(f"BlindForthPicker: Remaining endpoints after removing 25%: {[se.endpoint for se in scored_endpoints]}")
         return max(scored_endpoints, key=lambda se: se.score)
 
 
