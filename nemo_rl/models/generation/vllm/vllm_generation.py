@@ -398,6 +398,8 @@ class VllmGeneration(GenerationInterface):
 
     def _get_raw_spec_counters(self) -> dict[str | tuple[str, int], float]:
         """Collect raw spec decode counters from workers."""
+        if self.cfg["vllm_cfg"]["async_engine"]:
+            return {}
         futures = self.worker_group.run_all_workers_single_data(
             "_get_raw_spec_counters",
             run_rank_0_only_axes=["tensor_parallel", "pipeline_parallel"],
