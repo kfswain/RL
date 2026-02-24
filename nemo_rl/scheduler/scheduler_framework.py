@@ -66,35 +66,3 @@ class BlindForthPicker(PickerPlugin):
             scored_endpoints.pop(random.randint(0, len(scored_endpoints) - 1))
         print(f"BlindForthPicker: Remaining endpoints after removing 25%: {[se.endpoint for se in scored_endpoints]}")
         return max(scored_endpoints, key=lambda se: se.score)
-
-
-
-# Hooking into Ray Serve's Request Router
-
-# from ray import serve
-# from ray.serve.llm.request_router import PrefixCacheAffinityRouter
-# from ray.serve.llm import LLMConfig, build_openai_app
-
-# llm_config = LLMConfig(
-#     model_loading_config=dict(
-#         model_id="qwen-0.5b",
-#         model_source="Qwen/Qwen2.5-0.5B-Instruct",
-#     ),
-#     engine_kwargs=dict(
-#         enable_prefix_caching=True,
-#     ),
-#     deployment_config=dict(
-#         autoscaling_config=dict(
-#             min_replicas=6, max_replicas=6,
-#         ),
-#         request_router_config=dict(
-#             # Note our custom IGWRouter here
-#             request_router_class=IGWRouter
-#   	    ),
-#     ),
-# )
-
-# app = build_openai_app({
-#     "llm_configs": [llm_config],
-# })
-# serve.run(app, blocking=True)
