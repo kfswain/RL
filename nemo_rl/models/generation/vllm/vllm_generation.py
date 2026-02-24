@@ -618,12 +618,11 @@ class VllmGeneration(GenerationInterface):
             return
 
         print(f"Worker metadata: {self.worker_group.worker_metadata}")
-        print(f"")
         if self.scheduler is not None:
             # this is a total hack till we update the py-scheduler to accept tensors 
             # also, async sends a single prompt, which is why we can 0 index here
             str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
-            sched_req_format = LLMRequest(request_id="1", body=data, target_model=None)
+            sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
             result = self.scheduler.run(request=sched_req_format, candidates=[Endpoint(name=str(self.worker_group.get_dp_leader_worker_idx(index))) for index in range(self.worker_group.dp_size)])
             leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
                 int(result[0].endpoint.name)
