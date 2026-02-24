@@ -70,6 +70,6 @@ class BlindForthPicker(PickerPlugin):
 class QueueDepthFilter(FilterPlugin):
     def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Sequence[Endpoint]) -> Sequence[Endpoint]:
         # filter out endpoints with queue depth > 10
-        filtered_endpoints = [ep for ep in endpoints if ep.attributes.get("queue_depth", 0) <= 5]
-        print(f"QueueDepthFilter: Endpoints after filtering by queue depth <= 10: {[ep.name for ep in filtered_endpoints]}")
+        filtered_endpoints = [ep for ep in endpoints if ep.attributes["queue_depth"] <= 5]
+        print(f"QueueDepthFilter: Endpoints after filtering by queue depth <= 5: {[ep.name for ep in filtered_endpoints]}")
         return filtered_endpoints
