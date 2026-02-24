@@ -6,7 +6,7 @@ from scheduling.scheduler_config import SchedulerConfig
 from scheduling import PrefixCacheScorer
 from scheduling.prefix_plugin import _hash_prompt_bytes, _get_user_input_bytes
 from scheduling.scheduler import Scheduler
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional, Sequence, Mapping
 import random
 import time
 
@@ -68,8 +68,9 @@ class BlindForthPicker(PickerPlugin):
         return max(scored_endpoints, key=lambda se: se.score)
     
 class QueueDepthFilter(FilterPlugin):
-    def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Sequence[Endpoint]) -> Sequence[Endpoint]:
+    def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Mapping[str, Endpoint]) -> Mapping[str, Endpoint]:
         # filter out endpoints with queue depth > 10
-        for ep in endpoints:
+        for idx, ep in endpoints.items():
             print(f"QueueDepthFilter: Endpoints after {ep}")
+        filtered_endpoints = endpoints
         return filtered_endpoints
