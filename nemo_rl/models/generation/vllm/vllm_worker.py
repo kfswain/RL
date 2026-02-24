@@ -538,6 +538,9 @@ class BaseVllmGenerationWorker:
             AssertionError: If called before vLLM engine is initialized.
         """
         metrics: dict[str, float | list[float]] = {}
+        #Async engine does not support collect_rpc calls, so we skip metrics collection in that case.
+        if self.cfg["vllm_cfg"]["async_engine"]:
+            return {}
         if self.llm is not None:
             for metric in self.llm.get_metrics():
                 if hasattr(metric, "values"):
