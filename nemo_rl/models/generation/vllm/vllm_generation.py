@@ -617,6 +617,7 @@ class VllmGeneration(GenerationInterface):
         if not data_validation_fn(data):
             return
 
+        print(f"vllm metrics!: {self.get_vllm_logger_metrics()}")
         if self.scheduler is not None:
             # this is a total hack till we update the py-scheduler to accept tensors 
             # also, async sends a single prompt, which is why we can 0 index here
@@ -925,6 +926,7 @@ class VllmGeneration(GenerationInterface):
             "num_pending_samples": {},  # dp_idx -> list[int]
             "kv_cache_usage_perc": {},  # dp_idx -> list[float]
             "generation_tokens": {},  # dp_idx -> list[int]
+            "inter_token_latency_seconds": {},  # dp_idx -> list[float]
         }
 
         for dp_idx, stats in zip(dp_indices, results):
@@ -944,6 +946,9 @@ class VllmGeneration(GenerationInterface):
             generation_tokens = stats.get("generation_tokens")
             if generation_tokens:
                 vllm_logger_metrics["generation_tokens"][dp_idx] = generation_tokens
+            itl_value = stats.get("inter_token_latency_seconds")  
+            if itl_value:
+                vllm_logger_metrics["inter_token_latency_seconds"][dp_idx] = itl_value
 
         return vllm_logger_metrics
 
