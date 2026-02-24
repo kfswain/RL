@@ -212,6 +212,7 @@ class VllmAsyncGenerationWorker(BaseVllmGenerationWorker):
         self.num_pending_samples: list[int] = []
         self.kv_cache_usage_perc: list[float] = []
         self.generation_tokens: list[int] = []
+        self.inter_token_latency_seconds: list[float] = []
 
         def _logger_loop():
             # Delay a little to let engine settle
@@ -220,6 +221,8 @@ class VllmAsyncGenerationWorker(BaseVllmGenerationWorker):
                 try:
                     for m in get_metrics_snapshot():
                         with self._vllm_metrics_lock:
+                            if m.name == "vllm:inter_token_latency_seconds":
+                                print(f"vLLM inter-token latency metric: {m.value} seconds")
                             if isinstance(m, Gauge):
                                 # Log the vllm inflight batch sizes
                                 if m.name == "vllm:num_requests_running":
@@ -233,6 +236,10 @@ class VllmAsyncGenerationWorker(BaseVllmGenerationWorker):
                             elif isinstance(m, Counter):
                                 if m.name == "vllm:generation_tokens":
                                     self.generation_tokens.append(int(m.value))
+                            elif isinstance(m, Histogram):
+                                if m.name == "vllm:inter_token_latency_seconds":
+                                    # We log the mean inter-token latency in seconds
+                                    self.inter_token_latency_seconds.append(float(m.mean))
                 except Exception:
                     print(
                         "⚠️[vLLM Metric Logger] Exception in vLLM metrics logger",
@@ -261,6 +268,7 @@ class VllmAsyncGenerationWorker(BaseVllmGenerationWorker):
                 "num_pending_samples": copy.deepcopy(self.num_pending_samples),
                 "kv_cache_usage_perc": copy.deepcopy(self.kv_cache_usage_perc),
                 "generation_tokens": copy.deepcopy(self.generation_tokens),
+                "inter_token_latency_seconds": copy.deepcopy(self.inter_token_latency_seconds),
             }
         return metric
 

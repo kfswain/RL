@@ -623,7 +623,7 @@ class VllmGeneration(GenerationInterface):
             # also, async sends a single prompt, which is why we can 0 index here
             str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
             sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
-            result = self.scheduler.run(request=sched_req_format, candidates=[Endpoint(name=str(self.worker_group.get_dp_leader_worker_idx(index))) for index in range(self.worker_group.dp_size)])
+            result = self.scheduler.run(request=sched_req_format, candidates=[Endpoint(name=str(self.worker_group.get_dp_leader_worker_idx(index)), attributes={"queue_depth": self.get_vllm_logger_metrics()['num_pending_samples'][index][-1]}) for index in range(self.worker_group.dp_size)])
             leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
                 int(result[0].endpoint.name)
             )

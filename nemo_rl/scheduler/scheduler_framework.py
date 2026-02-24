@@ -1,5 +1,5 @@
 
-from scheduling.framework import ScorerPlugin, PickerPlugin, SchedulerProfile, WeightedScorer
+from scheduling.framework import ScorerPlugin, PickerPlugin, SchedulerProfile, WeightedScorer, FilterPlugin
 from scheduling.types import Endpoint, ScoredEndpoint, CycleState, LLMRequest
 from scheduling.plugins import SingleProfileHandler
 from scheduling.scheduler_config import SchedulerConfig
@@ -20,7 +20,7 @@ from typing import (
 
 class NemoRequestScheduler:
     def __init__(self):
-        prefix_profile = SchedulerProfile(name="ray_example").with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(BlindForthPicker())
+        prefix_profile = SchedulerProfile(name="ray_example").with_filters(QueueDepthFilter()).with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(BlindForthPicker())
         config = SchedulerConfig(profile_handler=SingleProfileHandler(), profiles={
             prefix_profile.name: prefix_profile
         })
@@ -66,3 +66,10 @@ class BlindForthPicker(PickerPlugin):
             scored_endpoints.pop(random.randint(0, len(scored_endpoints) - 1))
         print(f"BlindForthPicker: Remaining endpoints after removing 25%: {[se.endpoint for se in scored_endpoints]}")
         return max(scored_endpoints, key=lambda se: se.score)
+    
+class QueueDepthFilter(FilterPlugin):
+    def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Sequence[Endpoint]) -> Sequence[Endpoint]:
+        # filter out endpoints with queue depth > 10
+        filtered_endpoints = [ep for ep in endpoints if ep.metadata.get("queue_depth", 0) <= 5]
+        print(f"QueueDepthFilter: Endpoints after filtering by queue depth <= 10: {[ep.name for ep in filtered_endpoints]}")
+        return filtered_endpoints
