@@ -608,6 +608,7 @@ class VllmGeneration(GenerationInterface):
         """
         def add_endpoint_if_not_exists(engine_idx: str):
             if self.endpoints is not None and engine_idx not in self.endpoints:
+                print(f"Adding new endpoint for engine_idx {engine_idx}")
                 self.endpoints[engine_idx] = Endpoint(name=engine_idx)
             
         def update_metrics(engine_idx: str, metrics: dict):
@@ -652,7 +653,7 @@ class VllmGeneration(GenerationInterface):
             # also, async sends a single prompt, which is why we can 0 index here
             str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
             sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
-            result = self.scheduler.run(request=sched_req_format, candidates=[self.endpoints])
+            result = self.scheduler.run(request=sched_req_format, candidates=[ep for i, ep in self.endpoints.items()])
             leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
                 int(result[0].endpoint.name)
             )
