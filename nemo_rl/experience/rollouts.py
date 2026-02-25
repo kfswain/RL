@@ -933,24 +933,24 @@ def run_async_multi_turn_rollout(
                         for ep in assigned_endpoints.values():
                             if ep.attributes["trajectory"] is not None and ep.attributes["trajectory"] in trajectories:
                                 # assign this trajectory to the now free endpoint
-                                assigned_endpoints[ep].attributes["trajectory"] = ep.attributes["trajectory"]
+                                assigned_endpoints[idx].attributes["trajectory"] = ep.attributes["trajectory"]
                                 break
                 
                 while True:
                     # fill the endpoint
-                    sched_req_format = LLMRequest(request_id="1", body=assigned_endpoints[ep], target_model=None)
+                    sched_req_format = LLMRequest(request_id="1", body=assigned_endpoints[idx].attributes["trajectory"], target_model=None)
                     result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
                     if result is None:
                         break
                     else:
-                        if len(trajectories[assigned_endpoints[ep].attributes["trajectory"]]) == 0:
+                        if len(trajectories[assigned_endpoints[idx].attributes["trajectory"]]) == 0:
                             # trajectory complete, clear it from the candidate list and any assigned endpoints
-                            trajectories.pop(assigned_endpoints[ep].attributes["trajectory"])
+                            trajectories.pop(assigned_endpoints[idx].attributes["trajectory"])
                             for e in assigned_endpoints.values():
-                                if e.attributes["trajectory"] == assigned_endpoints[ep].attributes["trajectory"]:
+                                if e.attributes["trajectory"] == assigned_endpoints[idx].attributes["trajectory"]:
                                     e.attributes["trajectory"] = None
                             break
-                        sample = trajectories[assigned_endpoints[ep].attributes["trajectory"]].pop(0)
+                        sample = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
                         task = run_single_sample_with_error_handling(i, sample, lw_idx=idx)
                         sample_tasks.append(task)
             # refresh endpoint metrics now to ensure we hold off on backpressure
