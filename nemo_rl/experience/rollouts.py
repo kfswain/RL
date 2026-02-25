@@ -957,6 +957,9 @@ def run_async_multi_turn_rollout(
             # we wait 10ms to not hog the thread/lock to allow metrics to refresh
             sleep(0.005)
             metrics = policy_generation.get_vllm_logger_metrics()
+            print(f"Scheduler loop: endpoint metrics: {metrics}")
+            for idx, ep in assigned_endpoints.items():
+                update_metrics(idx, ep, metrics)
 
 
             
