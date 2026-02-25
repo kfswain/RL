@@ -819,14 +819,14 @@ async def run_sample_multi_turn_rollout(
 
 def update_metrics(idx, endpoint: Endpoint, metrics: dict):
     updated = False
-    print(f"Endpoint {endpoint.name} - Current metrics: pending_samples={metrics["num_pending_samples"][idx][-1]}, kv_cache_usage={metrics["kv_cache_usage_perc"][idx][-1]}%, generation_tokens={metrics["generation_tokens"][idx][-1]}")
-    if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][idx][-1]:
+    
+    if idx in metrics["num_pending_samples"] and endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][idx][-1]:
         updated = True
         endpoint.attributes["num_pending_samples"] = metrics["num_pending_samples"][idx][-1]
-    if endpoint.attributes["kv_cache_usage_perc"] != metrics["kv_cache_usage_perc"][idx][-1]:
+    if idx in metrics["kv_cache_usage_perc"] and endpoint.attributes["kv_cache_usage_perc"] != metrics["kv_cache_usage_perc"][idx][-1]:
         updated = True
         endpoint.attributes["kv_cache_usage_perc"] = metrics["kv_cache_usage_perc"][idx][-1]
-    if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][idx][-1]:
+    if idx in metrics["generation_tokens"] and endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][idx][-1]:
         updated = True
         endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][idx][-1]
     if time.time() - endpoint.attributes["last_updated"] > 1:
