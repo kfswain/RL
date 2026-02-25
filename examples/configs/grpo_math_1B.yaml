@@ -4,7 +4,7 @@ grpo:
   num_generations_per_prompt: 32
   max_rollout_turns: 1 # for multi-turn rollouts. Math Environments just have 1 turn (answering the question)
   max_num_epochs: 1
-  max_num_steps: 1
+  max_num_steps: 3
   normalize_rewards: true
   use_leave_one_out_baseline: true
   val_period: 10
@@ -239,7 +239,7 @@ policy:
 
   generation:
     backend: "vllm"
-    scheduler: "disabled"
+    scheduler: "enabled"
     max_new_tokens: ${policy.max_total_sequence_length}
     temperature: 1.0
     top_p: 1.0

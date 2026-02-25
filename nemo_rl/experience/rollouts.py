@@ -908,34 +908,25 @@ def run_async_multi_turn_rollout(
         sample_results = []
 
         if policy_generation.scheduler is not None:
+            trajectories = {}
+            for i, sample_state in enumerate(sample_initial_states):
+                key = sample_state['message_log'][0]['content']
+                if key not in trajectories:
+                    trajectories[key] = [(sample_state, i)]
+                else:
+                    trajectories[key].append((sample_state, i))
+            print(f"Trajectory count {len(trajectories)}")
+            assigned_endpoints = {}
+            for i in range(policy_generation.worker_group.dp_size):
+                assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0, "last_updated": time.time()})
+            
             async with asyncio.TaskGroup() as tg:
-                for i, sample_state in enumerate(sample_initial_states):
-                    print(f"Prepared initial state for sample {i}: task={sample_state['task_name']}")
                 # Create tasks for all samples and run them concurrently
-                
-                trajectories = {}
-                for i, sample_state in enumerate(sample_initial_states):
-                    key = sample_state['message_log'][0]['content']
-                    if key not in trajectories:
-                        trajectories[key] = [(sample_state, i)]
-                    else:
-                        trajectories[key].append((sample_state, i))
-                print(f"Trajectory count {len(trajectories)}")
-                assigned_endpoints = {}
-                for i in range(policy_generation.worker_group.dp_size):
-                    assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0, "last_updated": time.time()})
-
                 while len(trajectories) > 0:
-                    # Scan if an endpoint needs a new trajectory assigned, and assign one if available
+                    # Scan if an endpoint needs a new trajectory assigned, and assign one if available, otherwise dispatch it up.
                     for idx, ep in assigned_endpoints.items():
-                        # Trajectory assignment logic:
-                        if ep.attributes["trajectory"] is None and trajectories:
-                            for traj_key in trajectories.keys():
-                                if traj_key not in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
-                                    # assign a new trajectory to this endpoint
-                                    assigned_endpoints[idx].attributes["trajectory"] = traj_key
-                                    print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
-                                    break
+                        # Trajectory assignment logic
+                        if ep.attributes["trajectory"] is None and len(trajectories) > 0:
                             if len(trajectories) < len(assigned_endpoints):
                                 #we are wrapping up trajectories, help a sibling
                                 for ep in assigned_endpoints.values():
@@ -943,24 +934,34 @@ def run_async_multi_turn_rollout(
                                         # assign this trajectory to the now free endpoint
                                         assigned_endpoints[idx].attributes["trajectory"] = ep.attributes["trajectory"]
                                         break
-                        
+
+                            for traj_key in trajectories.keys():
+                                if traj_key in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
+                                    continue
+                                else:
+                                    # assign a new trajectory to this endpoint
+                                    assigned_endpoints[idx].attributes["trajectory"] = traj_key
+                                    print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
+                                    break
+
+                    for idx, ep in assigned_endpoints.items():    
+                        #dispatch samples from the assigned trajectory until we hit backpressure, then move to the next endpoint and repeat
                         while True:
-                            # fill the endpoint
-                            sched_req_format = LLMRequest(request_id="1", body=assigned_endpoints[idx].attributes["trajectory"], target_model=None)
+                            sched_req_format = LLMRequest(request_id="1", body=ep.attributes["trajectory"], target_model=None)
                             result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
                             if result is None:
                                 break
                             else:
-                                if assigned_endpoints[idx].attributes["trajectory"] is None or assigned_endpoints[idx].attributes["trajectory"] not in trajectories:
+                                if ep.attributes["trajectory"] is None or ep.attributes["trajectory"] not in trajectories:
                                     break
-                                if assigned_endpoints[idx].attributes["trajectory"] is not None and  len(trajectories[assigned_endpoints[idx].attributes["trajectory"]]) == 0:
+                                if ep.attributes["trajectory"] is not None and  len(trajectories[ep.attributes["trajectory"]]) == 0:
                                     # trajectory complete, clear it from the candidate list and any assigned endpoints
-                                    del trajectories[assigned_endpoints[idx].attributes["trajectory"]]
+                                    del trajectories[ep.attributes["trajectory"]]
                                     for e in assigned_endpoints.values():
-                                        if e.attributes["trajectory"] == assigned_endpoints[idx].attributes["trajectory"]:
+                                        if e.attributes["trajectory"] == ep.attributes["trajectory"]:
                                             e.attributes["trajectory"] = None
                                     break
-                                (sample, sample_index) = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
+                                (sample, sample_index) = trajectories[ep.attributes["trajectory"]].pop(0)
                                 sample_tasks.append(tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx)))
                     # refresh endpoint metrics now to ensure we hold off on backpressure
                     # we wait 10ms to not hog the thread/lock to allow metrics to refresh
