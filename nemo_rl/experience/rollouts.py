@@ -921,29 +921,32 @@ def run_async_multi_turn_rollout(
                 assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0, "last_updated": time.time()})
                 print(f"Initialized endpoint {i} with attributes {assigned_endpoints[i].attributes}")
             
-            # async with asyncio.TaskGroup() as tg:
-            #     # Create tasks for all samples and run them concurrently
-            #     while len(trajectories) > 0:
-            #         # Scan if an endpoint needs a new trajectory assigned, and assign one if available, otherwise dispatch it up.
-            #         for idx, ep in assigned_endpoints.items():
-            #             # Trajectory assignment logic
-            #             if ep.attributes["trajectory"] is None and len(trajectories) > 0:
-            #                 if len(trajectories) < len(assigned_endpoints):
-            #                     #we are wrapping up trajectories, help a sibling
-            #                     for ep in assigned_endpoints.values():
-            #                         if ep.attributes["trajectory"] is not None and ep.attributes["trajectory"] in trajectories:
-            #                             # assign this trajectory to the now free endpoint
-            #                             assigned_endpoints[idx].attributes["trajectory"] = ep.attributes["trajectory"]
-            #                             break
+            async with asyncio.TaskGroup() as tg:
+                # Create tasks for all samples and run them concurrently
+                while len(trajectories) > 0:
+                    # Scan if an endpoint needs a new trajectory assigned, and assign one if available, otherwise dispatch it up.
+                    for idx, ep in assigned_endpoints.items():
+                        # Trajectory assignment logic
+                        if ep.attributes["trajectory"] is None and len(trajectories) > 0:
+                            if len(trajectories) < len(assigned_endpoints):
+                                #we are wrapping up trajectories, help a sibling
+                                for ep in assigned_endpoints.values():
+                                    if ep.attributes["trajectory"] is not None and ep.attributes["trajectory"] in trajectories:
+                                        # assign this trajectory to the now free endpoint
+                                        assigned_endpoints[idx].attributes["trajectory"] = ep.attributes["trajectory"]
+                                        break
 
-            #                 for traj_key in trajectories.keys():
-            #                     if traj_key in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
-            #                         continue
-            #                     else:
-            #                         # assign a new trajectory to this endpoint
-            #                         assigned_endpoints[idx].attributes["trajectory"] = traj_key
-            #                         print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
-            #                         break
+                            for traj_key in trajectories.keys():
+                                if traj_key in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
+                                    continue
+                                else:
+                                    # assign a new trajectory to this endpoint
+                                    assigned_endpoints[idx].attributes["trajectory"] = traj_key
+                                    print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
+                                    break
+                    trajectories = {}
+                for idx, ep in assigned_endpoints.items():
+                    print(f"Endpoint {idx} assigned trajectory '{ep.attributes['trajectory']}' with attributes {ep.attributes} and name {ep.name}")
 
             #         for idx, ep in assigned_endpoints.items():    
             #             #dispatch samples from the assigned trajectory until we hit backpressure, then move to the next endpoint and repeat
