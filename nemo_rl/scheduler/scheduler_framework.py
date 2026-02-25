@@ -20,7 +20,7 @@ from typing import (
 
 class NemoRequestScheduler:
     def __init__(self):
-        prefix_profile = SchedulerProfile(name="ray_example").with_filters(QueueDepthFilter()).with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(BlindForthPicker())
+        prefix_profile = SchedulerProfile(name="ray_example").with_filters(StaleEndpointFilter()).with_filters(QueueDepthFilter()).with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(MaxScorePicker())
         config = SchedulerConfig(profile_handler=SingleProfileHandler(), profiles={
             prefix_profile.name: prefix_profile
         })
@@ -72,7 +72,7 @@ class StaleEndpointFilter(FilterPlugin):
     def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Mapping[str, Endpoint]) -> Mapping[str, Endpoint]:
         filtered_endpoints = {}
         for idx, ep in endpoints.items():
-            if ep.attributes["requests_since_metric_update"] < 5:
+            if ep.attributes["requests_since_metric_update"] < 15:
                 filtered_endpoints[idx] = ep
         return filtered_endpoints
 
