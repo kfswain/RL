@@ -907,71 +907,71 @@ def run_async_multi_turn_rollout(
         sample_results = []
 
         if policy_generation.scheduler is not None:
-            tg = asyncio.TaskGroup()
-            for i, sample_state in enumerate(sample_initial_states):
-                print(f"Prepared initial state for sample {i}: task={sample_state['task_name']}")
-            # Create tasks for all samples and run them concurrently
-            sample_tasks = []
-            
-            trajectories = {}
-            for i, sample_state in enumerate(sample_initial_states):
-                key = sample_state['message_log'][0]['content']
-                if key not in trajectories:
-                    trajectories[key] = [(sample_state, i)]
-                else:
-                    trajectories[key].append((sample_state, i))
-            print(f"Trajectory count {len(trajectories)}")
-            assigned_endpoints = {}
-            for i in range(policy_generation.worker_group.dp_size):
-                assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0, "last_updated": time.time()})
+            async with asyncio.TaskGroup() as tg:
+                for i, sample_state in enumerate(sample_initial_states):
+                    print(f"Prepared initial state for sample {i}: task={sample_state['task_name']}")
+                # Create tasks for all samples and run them concurrently
+                sample_tasks = []
+                
+                trajectories = {}
+                for i, sample_state in enumerate(sample_initial_states):
+                    key = sample_state['message_log'][0]['content']
+                    if key not in trajectories:
+                        trajectories[key] = [(sample_state, i)]
+                    else:
+                        trajectories[key].append((sample_state, i))
+                print(f"Trajectory count {len(trajectories)}")
+                assigned_endpoints = {}
+                for i in range(policy_generation.worker_group.dp_size):
+                    assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0, "last_updated": time.time()})
 
-            while len(trajectories) > 0:
-                # Scan if an endpoint needs a new trajectory assigned, and assign one if available
-                for idx, ep in assigned_endpoints.items():
-                    # Trajectory assignment logic:
-                    if ep.attributes["trajectory"] is None and trajectories:
-                        for traj_key in trajectories.keys():
-                            if traj_key not in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
-                                # assign a new trajectory to this endpoint
-                                assigned_endpoints[idx].attributes["trajectory"] = traj_key
-                                print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
-                                break
-                        if len(trajectories) < len(assigned_endpoints):
-                            #we are wrapping up trajectories, help a sibling
-                            for ep in assigned_endpoints.values():
-                                if ep.attributes["trajectory"] is not None and ep.attributes["trajectory"] in trajectories:
-                                    # assign this trajectory to the now free endpoint
-                                    assigned_endpoints[idx].attributes["trajectory"] = ep.attributes["trajectory"]
+                while len(trajectories) > 0:
+                    # Scan if an endpoint needs a new trajectory assigned, and assign one if available
+                    for idx, ep in assigned_endpoints.items():
+                        # Trajectory assignment logic:
+                        if ep.attributes["trajectory"] is None and trajectories:
+                            for traj_key in trajectories.keys():
+                                if traj_key not in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
+                                    # assign a new trajectory to this endpoint
+                                    assigned_endpoints[idx].attributes["trajectory"] = traj_key
+                                    print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
                                     break
-                    
-                    while True:
-                        # fill the endpoint
-                        sched_req_format = LLMRequest(request_id="1", body=assigned_endpoints[idx].attributes["trajectory"], target_model=None)
-                        result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
-                        if result is None:
-                            break
-                        else:
-                            if assigned_endpoints[idx].attributes["trajectory"] is None or assigned_endpoints[idx].attributes["trajectory"] not in trajectories:
+                            if len(trajectories) < len(assigned_endpoints):
+                                #we are wrapping up trajectories, help a sibling
+                                for ep in assigned_endpoints.values():
+                                    if ep.attributes["trajectory"] is not None and ep.attributes["trajectory"] in trajectories:
+                                        # assign this trajectory to the now free endpoint
+                                        assigned_endpoints[idx].attributes["trajectory"] = ep.attributes["trajectory"]
+                                        break
+                        
+                        while True:
+                            # fill the endpoint
+                            sched_req_format = LLMRequest(request_id="1", body=assigned_endpoints[idx].attributes["trajectory"], target_model=None)
+                            result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
+                            if result is None:
                                 break
-                            if assigned_endpoints[idx].attributes["trajectory"] is not None and  len(trajectories[assigned_endpoints[idx].attributes["trajectory"]]) == 0:
-                                # trajectory complete, clear it from the candidate list and any assigned endpoints
-                                del trajectories[assigned_endpoints[idx].attributes["trajectory"]]
-                                for e in assigned_endpoints.values():
-                                    if e.attributes["trajectory"] == assigned_endpoints[idx].attributes["trajectory"]:
-                                        e.attributes["trajectory"] = None
-                                break
-                            (sample, sample_index) = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
-                            tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx))
-                            sample_tasks.append(task)
-                # refresh endpoint metrics now to ensure we hold off on backpressure
-                # we wait 10ms to not hog the thread/lock to allow metrics to refresh
-                time.sleep(0.005)
-                metrics = policy_generation.get_vllm_logger_metrics()
-                for idx, ep in assigned_endpoints.items():
-                    update_metrics(idx, ep, metrics)
+                            else:
+                                if assigned_endpoints[idx].attributes["trajectory"] is None or assigned_endpoints[idx].attributes["trajectory"] not in trajectories:
+                                    break
+                                if assigned_endpoints[idx].attributes["trajectory"] is not None and  len(trajectories[assigned_endpoints[idx].attributes["trajectory"]]) == 0:
+                                    # trajectory complete, clear it from the candidate list and any assigned endpoints
+                                    del trajectories[assigned_endpoints[idx].attributes["trajectory"]]
+                                    for e in assigned_endpoints.values():
+                                        if e.attributes["trajectory"] == assigned_endpoints[idx].attributes["trajectory"]:
+                                            e.attributes["trajectory"] = None
+                                    break
+                                (sample, sample_index) = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
+                                tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx))
+                                sample_tasks.append(task)
+                    # refresh endpoint metrics now to ensure we hold off on backpressure
+                    # we wait 10ms to not hog the thread/lock to allow metrics to refresh
+                    time.sleep(0.005)
+                    metrics = policy_generation.get_vllm_logger_metrics()
+                    for idx, ep in assigned_endpoints.items():
+                        update_metrics(idx, ep, metrics)
 
 
-            sample_results = tg.results()    
+                sample_results = tg.results()    
 
             # my brain is exhausted but basically i just need to assign these dang trajectories to endpoints
             # once the first set is assigned its just managing the queue depth on the worker
