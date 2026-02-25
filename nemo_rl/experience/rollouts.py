@@ -26,6 +26,7 @@ from typing import Any, Optional
 
 import ray
 import torch
+from time import sleep
 from transformers import PreTrainedTokenizerBase
 from wandb import Histogram, Table
 
@@ -816,6 +817,19 @@ async def run_sample_multi_turn_rollout(
 
     return final_sample_state, sample_metrics
 
+def update_metrics(idx, endpoint: Endpoint, metrics: dict):
+    updated = False
+    if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][idx]:
+        updated = True
+        endpoint.attributes["num_pending_samples"] = metrics["num_pending_samples"][idx]
+    if endpoint.attributes["kv_cache_usage_perc"] != metrics["kv_cache_usage_perc"][idx]:
+        updated = True
+        endpoint.attributes["kv_cache_usage_perc"] = metrics["kv_cache_usage_perc"][idx]
+    if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][idx]:
+        updated = True
+        endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][idx]
+    if updated:
+        endpoint.attributes["requests_since_metric_update"] = 0
 
 def run_async_multi_turn_rollout(
     policy_generation: GenerationInterface,
@@ -899,19 +913,72 @@ def run_async_multi_turn_rollout(
             else:
                 trajectories[key].append(sample_state)
         print(f"Trajectory count {len(trajectories)}")
-        for i, sample_state in enumerate(sample_initial_states):
-            # We will assume grpo, so we can group each req together and fill up one worker at a time with each trajectory (but not the full trajectory if this is over the workers parallel limits; gathered emperically)
-            # When each worker is assigned a sample, we will run the full trajectory for that sample on that worker before moving to the next sample, to maximize the benefits of vLLM's context caching. This is not strictly necessary but should provide better performance.
-            # If there is no more additional unassigned trajectories, but a worker has capacity, we will pull from a sibling workers trajectory so that work is distributed more evenly across workers.
-            # This should reduce tail latency, and this hinges on the fact that we throttle requests, so that a worker is only working with a set batch and we are trying to keep a small buffer of pending requests.
-            # I don't expect us to significantly improve tput, but we should improve tail latency of the batch as a whole.
-            if policy_generation.scheduler is not None:
-                #str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
-                sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
-                result = policy_generation.scheduler.run(request=sched_req_format, candidates=endpoints)
-                print(f"Scheduler result for sample {i}: {result}")
-            task = run_single_sample_with_error_handling(i, sample_state,)
-            sample_tasks.append(task)
+        assigned_endpoints = {}
+        for i in range(policy_generation.worker_group.dp_size):
+            assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0})
+
+        while trajectories:
+            # Scan if an endpoint needs a new trajectory assigned, and assign one if available
+            for ep, traj_prompt in assigned_endpoints.items():
+                # Trajectory assignment logic:
+                if traj_prompt.attributes["trajectory"] is None and trajectories:
+                    for traj_key in trajectories.keys():
+                        if traj_key not in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
+                            # assign a new trajectory to this endpoint
+                            assigned_endpoints[ep].attributes["trajectory"] = traj_key
+                            print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
+                            break
+                    if len(trajectories) < len(assigned_endpoints):
+                        #we are wrapping up trajectories, help a sibling
+                        for traj_prompt in assigned_endpoints.values():
+                            if traj_prompt is not None and traj_prompt.attributes["trajectory"] in trajectories:
+                                # assign this trajectory to the now free endpoint
+                                assigned_endpoints[ep].attributes["trajectory"] = traj_prompt.attributes["trajectory"]
+                                break
+                
+                while True:
+                    # fill the endpoint
+                    sched_req_format = LLMRequest(request_id="1", body=assigned_endpoints[ep], target_model=None)
+                    result = policy_generation.scheduler.run(request=sched_req_format, candidates=ep)
+                    if result is None:
+                        break
+                    else:
+                        if len(trajectories[assigned_endpoints[ep].attributes["trajectory"]]) == 0:
+                            # trajectory complete, clear it from the candidate list and any assigned endpoints
+                            trajectories.pop(assigned_endpoints[ep].attributes["trajectory"])
+                            for e in assigned_endpoints.values():
+                                if e.attributes["trajectory"] == assigned_endpoints[ep].attributes["trajectory"]:
+                                    e.attributes["trajectory"] = None
+                            break
+                        sample = trajectories[assigned_endpoints[ep].attributes["trajectory"]].pop(0)
+                        task = run_single_sample_with_error_handling(i, sample, lw_idx=ep.name)
+                        sample_tasks.append(task)
+            # refresh endpoint metrics now to ensure we hold off on backpressure
+            # we wait 10ms to not hog the thread/lock to allow metrics to refresh
+            sleep(0.005)
+            metrics = policy_generation.get_vllm_logger_metrics()
+
+
+            
+
+        # my brain is exhausted but basically i just need to assign these dang trajectories to endpoints
+        # once the first set is assigned its just managing the queue depth on the worker
+        # once a trajectory is exhausted pop it
+        # scheduler is used as a queue depth checker essentially, and if multiple workers are available it can use the prefix routing to pick one, but thats a micro optimization
+
+        # one more time before bed: 
+        # 1. initial saturation; each ep gets a single traj (track backpressure to know when to dispatch new samples from the same traj)
+        # 2. as trajs complete, assign new ones to the now free eps (we _try_ to focus on a single traj at a time to avoid using kv-space for prefill tokens, but thats imperfect as a worker has capacity and a traj has ended)
+        # 3. Using backpressure lets us take into account the variant length of the sample(s), so we always dispatch a new traj to the most recently available worker
+        # 4. if no new trajs, assign sibling trajs to keep workers busy until all trajs are done (if 2 workers are busy and 2 are free, probably better to split them up)
+        # Why is this better than RR? B/C we take into account backpressure and assign the new traj _as its available_, and then when all trajs are empty, they divide and conquer
+        # to chew throught the remaining queue. Nemo RR doesnt even batch by traj, but rr implies you fire all requests off at once and you could have inconsistent results (i.e. all the long trajs end up on a single worker, causing hella tail latency)
+
+        # We will assume grpo, so we can group each req together and fill up one worker at a time with each trajectory (but not the full trajectory if this is over the workers parallel limits; gathered emperically)
+        # When each worker is assigned a sample, we will run the full trajectory for that sample on that worker before moving to the next sample, to maximize the benefits of vLLM's context caching. This is not strictly necessary but should provide better performance.
+        # If there is no more additional unassigned trajectories, but a worker has capacity, we will pull from a sibling workers trajectory so that work is distributed more evenly across workers.
+        # This should reduce tail latency, and this hinges on the fact that we throttle requests, so that a worker is only working with a set batch and we are trying to keep a small buffer of pending requests.
+        # I don't expect us to significantly improve tput, but we should improve tail latency of the batch as a whole.
             
             
 

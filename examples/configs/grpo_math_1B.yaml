@@ -1,7 +1,7 @@
 # GRPO Algorithm Configuration
 grpo:
-  num_prompts_per_step: 2
-  num_generations_per_prompt: 4
+  num_prompts_per_step: 1
+  num_generations_per_prompt: 200
   max_rollout_turns: 1 # for multi-turn rollouts. Math Environments just have 1 turn (answering the question)
   max_num_epochs: 1
   max_num_steps: 1
@@ -80,7 +80,7 @@ checkpointing:
   save_consolidated: false
 
 policy:
-  model_name: "Qwen/Qwen2.5-32B"
+  model_name: "Qwen/Qwen2.5-1.5B"
   tokenizer:
     name: ${policy.model_name} ## specify if you'd like to use a tokenizer different from the model's default
     chat_template_kwargs: null # can be used to pass kwargs to the chat template, e.g., enable_thinking=true
@@ -239,7 +239,7 @@ policy:
 
   generation:
     backend: "vllm"
-    scheduler: "disabled"
+    scheduler: "enabled"
     max_new_tokens: ${policy.max_total_sequence_length}
     temperature: 1.0
     top_p: 1.0
@@ -272,7 +272,7 @@ policy:
       num_last_layers_in_bf16: 0
       num_first_layers_in_bf16: 0
       enable_vllm_metrics_logger: true # Set to true to enable vLLM internal metrics logger, turn off for better performance
-      vllm_metrics_logger_interval: 0.05 # Interval in seconds to collect vLLM logger metrics
+      vllm_metrics_logger_interval: 0.005 # Interval in seconds to collect vLLM logger metrics
     vllm_kwargs: {}
     colocated:
       # true: generation shares training GPUs
