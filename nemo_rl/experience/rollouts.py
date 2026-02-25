@@ -819,15 +819,15 @@ async def run_sample_multi_turn_rollout(
 
 def update_metrics(idx, endpoint: Endpoint, metrics: dict):
     updated = False
-    if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][idx]:
+    if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][idx][-1]:
         updated = True
-        endpoint.attributes["num_pending_samples"] = metrics["num_pending_samples"][idx]
-    if endpoint.attributes["kv_cache_usage_perc"] != metrics["kv_cache_usage_perc"][idx]:
+        endpoint.attributes["num_pending_samples"] = metrics["num_pending_samples"][idx][-1]
+    if endpoint.attributes["kv_cache_usage_perc"] != metrics["kv_cache_usage_perc"][idx][-1]:
         updated = True
-        endpoint.attributes["kv_cache_usage_perc"] = metrics["kv_cache_usage_perc"][idx]
-    if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][idx]:
+        endpoint.attributes["kv_cache_usage_perc"] = metrics["kv_cache_usage_perc"][idx][-1]
+    if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][idx][-1]:
         updated = True
-        endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][idx]
+        endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][idx][-1]
     if updated:
         endpoint.attributes["requests_since_metric_update"] = 0
 
@@ -916,7 +916,7 @@ def run_async_multi_turn_rollout(
         assigned_endpoints = {}
         for i in range(policy_generation.worker_group.dp_size):
             assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0})
-        
+
         while trajectories:
             # Scan if an endpoint needs a new trajectory assigned, and assign one if available
             for idx, ep in assigned_endpoints.items():
