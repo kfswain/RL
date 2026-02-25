@@ -939,7 +939,7 @@ def run_async_multi_turn_rollout(
                 while True:
                     # fill the endpoint
                     sched_req_format = LLMRequest(request_id="1", body=assigned_endpoints[ep], target_model=None)
-                    result = policy_generation.scheduler.run(request=sched_req_format, candidates=ep)
+                    result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
                     if result is None:
                         break
                     else:
