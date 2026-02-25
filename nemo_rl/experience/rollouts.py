@@ -891,6 +891,14 @@ def run_async_multi_turn_rollout(
         # Create tasks for all samples and run them concurrently
         sample_tasks = []
         
+        trajectories = {}
+        for i, sample_state in enumerate(sample_initial_states):
+            key = sample_state['message_log'][0]['content']
+            if key not in trajectories:
+                trajectories[key] = [sample_state]
+            else:
+                trajectories[key].append(sample_state)
+        print(f"Trajectory count {len(trajectories)}")
         for i, sample_state in enumerate(sample_initial_states):
             # We will assume grpo, so we can group each req together and fill up one worker at a time with each trajectory (but not the full trajectory if this is over the workers parallel limits; gathered emperically)
             # When each worker is assigned a sample, we will run the full trajectory for that sample on that worker before moving to the next sample, to maximize the benefits of vLLM's context caching. This is not strictly necessary but should provide better performance.
