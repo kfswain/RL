@@ -957,9 +957,8 @@ def run_async_multi_turn_rollout(
                                 if e.attributes["trajectory"] == assigned_endpoints[idx].attributes["trajectory"]:
                                     e.attributes["trajectory"] = None
                             break
-                        sample = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
-                        # NEED TO UPDATE THIS, THE INDEX HERE IS INCORRECT
-                        task = run_single_sample_with_error_handling(i, sample, lw_idx=idx)
+                        (sample, sample_index) = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
+                        task = run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx)
                         sample_tasks.append(task)
             # refresh endpoint metrics now to ensure we hold off on backpressure
             # we wait 10ms to not hog the thread/lock to allow metrics to refresh
