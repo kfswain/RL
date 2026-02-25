@@ -45,6 +45,7 @@ class NemoRequestScheduler:
     def pre_request(self, request: LLMRequest, selected_endpoint: Endpoint, profile_name: str):
         print(selected_endpoint)
         scorer = self.scheduler.profiles[profile_name].scorers[0].scorer
+        selected_endpoint.attributes["requests_since_metric_update"] += 1
         if isinstance(scorer, PrefixCacheScorer) and request.body is not None:
             scorer.add_prefixes_for_server(selected_endpoint.name, _hash_prompt_bytes(request.target_model, _get_user_input_bytes(request.body), 64, 256))
 
@@ -66,7 +67,15 @@ class BlindForthPicker(PickerPlugin):
             scored_endpoints.pop(random.randint(0, len(scored_endpoints) - 1))
         print(f"BlindForthPicker: Remaining endpoints after removing 25%: {[se.endpoint for se in scored_endpoints]}")
         return max(scored_endpoints, key=lambda se: se.score)
-    
+
+class StaleEndpointFilter(FilterPlugin):
+    def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Mapping[str, Endpoint]) -> Mapping[str, Endpoint]:
+        filtered_endpoints = {}
+        for idx, ep in endpoints.items():
+            if ep.attributes["requests_since_metric_update"] < 5:
+                filtered_endpoints[idx] = ep
+        return filtered_endpoints
+
 class QueueDepthFilter(FilterPlugin):
     def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Mapping[str, Endpoint]) -> Mapping[str, Endpoint]:
         # filter out endpoints with queue depth > 10

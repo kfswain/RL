@@ -228,8 +228,10 @@ class VllmGeneration(GenerationInterface):
 
         # Use the python scheduler to handle scheduling of workers\
         self.scheduler = None
+        self.endpoints = None
         if scheduler is not None:
             self.scheduler = scheduler
+            self.endpoints = {}
         # Used to track the round-robin selection of worker groups for generate_async
         self.current_generate_dp_shard_idx = 0
 
@@ -604,6 +606,28 @@ class VllmGeneration(GenerationInterface):
         Yields:
             Tuple of (original_index, BatchedDataDict containing generation result)
         """
+        def add_endpoint_if_not_exists(engine_idx: str):
+            if self.endpoints is not None and engine_idx not in self.endpoints:
+                self.endpoints[engine_idx] = Endpoint(name=engine_idx)
+            
+        def update_metrics(engine_idx: str, metrics: dict):
+            endpoint = self.endpoints[engine_idx]
+            updated = False
+            if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][int(engine_idx)]:
+                updated = True
+                endpoint.attributes["num_pending_samples"] = metrics["num_pending_samples"][int(engine_idx)]
+            if endpoint.attributes["kv_cache_usage_perc"] != metrics["kv_cache_usage_perc"][int(engine_idx)]:
+                updated = True
+                endpoint.attributes["kv_cache_usage_perc"] = metrics["kv_cache_usage_perc"][int(engine_idx)]
+            if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][int(engine_idx)]:
+                updated = True
+                endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][int(engine_idx)]
+            if endpoint.attributes["inter_token_latency_seconds"] != metrics["inter_token_latency_seconds"][int(engine_idx)]:
+                updated = True
+                endpoint.attributes["inter_token_latency_seconds"] = metrics["inter_token_latency_seconds"][int(engine_idx)]
+            if updated:
+                endpoint.attributes["requests_since_metric_update"] = 0
+
         if not self.cfg["vllm_cfg"]["async_engine"]:
             raise RuntimeError(
                 f"{method_name} can only be used when async_engine is enabled in vLLM config."
@@ -618,11 +642,17 @@ class VllmGeneration(GenerationInterface):
             return
 
         if self.scheduler is not None:
+            for index in range(self.worker_group.dp_size):
+                worker_index = str(self.worker_group.get_dp_leader_worker_idx(index))
+                add_endpoint_if_not_exists(worker_index)
+                metrics = self.get_vllm_logger_metrics()
+                update_metrics(index, metrics)
+                print(f"Scheduling request with metrics: {metrics}")
             # this is a total hack till we update the py-scheduler to accept tensors 
             # also, async sends a single prompt, which is why we can 0 index here
             str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
             sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
-            result = self.scheduler.run(request=sched_req_format, candidates=[Endpoint(name=str(self.worker_group.get_dp_leader_worker_idx(index)), attributes={"queue_depth": self.get_vllm_logger_metrics()['num_pending_samples'][index][-1]}) for index in range(self.worker_group.dp_size)])
+            result = self.scheduler.run(request=sched_req_format, candidates=[])
             leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
                 int(result[0].endpoint.name)
             )

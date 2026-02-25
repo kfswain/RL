@@ -296,7 +296,7 @@ data:
   validation: null
   # default settings for all datasets
   default:
-    prompt_file: "examples/prompts/cot.txt"
+    prompt_file: null
     system_prompt_file: null
     processor: "math_hf_data_processor"
     env_name: "math"
