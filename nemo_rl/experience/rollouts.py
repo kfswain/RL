@@ -922,7 +922,7 @@ def run_async_multi_turn_rollout(
         for i in range(policy_generation.worker_group.dp_size):
             assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0, "last_updated": time.time()})
 
-        while trajectories:
+        while len(trajectories) > 0:
             # Scan if an endpoint needs a new trajectory assigned, and assign one if available
             for idx, ep in assigned_endpoints.items():
                 # Trajectory assignment logic:
@@ -950,14 +950,13 @@ def run_async_multi_turn_rollout(
                     else:
                         if assigned_endpoints[idx].attributes["trajectory"] is None:
                             break
-                        if assigned_endpoints[idx].attributes["trajectory"] is None and len(trajectories[assigned_endpoints[idx].attributes["trajectory"]]) == 0:
+                        if assigned_endpoints[idx].attributes["trajectory"] is not None and len(trajectories[assigned_endpoints[idx].attributes["trajectory"]]) == 0:
                             # trajectory complete, clear it from the candidate list and any assigned endpoints
-                            trajectories.pop(assigned_endpoints[idx].attributes["trajectory"])
+                            del trajectories[assigned_endpoints[idx].attributes["trajectory"]]
                             for e in assigned_endpoints.values():
                                 if e.attributes["trajectory"] == assigned_endpoints[idx].attributes["trajectory"]:
                                     e.attributes["trajectory"] = None
                             break
-
                         sample = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
                         task = run_single_sample_with_error_handling(i, sample, lw_idx=idx)
                         sample_tasks.append(task)
