@@ -948,7 +948,7 @@ def run_async_multi_turn_rollout(
                     if result is None:
                         break
                     else:
-                        if trajectories[assigned_endpoints[idx].attributes["trajectory"]] is None:
+                        if assigned_endpoints[idx].attributes["trajectory"] is None:
                             break
                         if len(trajectories[assigned_endpoints[idx].attributes["trajectory"]]) == 0:
                             # trajectory complete, clear it from the candidate list and any assigned endpoints
