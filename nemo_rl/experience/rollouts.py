@@ -960,7 +960,7 @@ def run_async_multi_turn_rollout(
                         sample_tasks.append(task)
             # refresh endpoint metrics now to ensure we hold off on backpressure
             # we wait 10ms to not hog the thread/lock to allow metrics to refresh
-            sleep(0.005)
+            time.sleep(0.005)
             metrics = policy_generation.get_vllm_logger_metrics()
             for idx, ep in assigned_endpoints.items():
                 update_metrics(idx, ep, metrics)
