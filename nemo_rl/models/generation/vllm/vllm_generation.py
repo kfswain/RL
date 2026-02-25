@@ -605,9 +605,6 @@ class VllmGeneration(GenerationInterface):
         if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][int(engine_idx)]:
             updated = True
             endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][int(engine_idx)]
-        if endpoint.attributes["inter_token_latency_seconds"] != metrics["inter_token_latency_seconds"][int(engine_idx)]:
-            updated = True
-            endpoint.attributes["inter_token_latency_seconds"] = metrics["inter_token_latency_seconds"][int(engine_idx)]
         if updated:
             endpoint.attributes["requests_since_metric_update"] = 0
 
@@ -646,26 +643,26 @@ class VllmGeneration(GenerationInterface):
 
         print(f"leader worer idx before scheduling: {leader_worker_idx}")
         if leader_worker_idx == -1:
-            if self.scheduler is not None:
-                for index in range(self.worker_group.dp_size):
-                    worker_index = str(self.worker_group.get_dp_leader_worker_idx(index))
-                    self.add_endpoint_if_not_exists(worker_index)
-                    metrics = self.get_vllm_logger_metrics()
-                    self.update_metrics(index, metrics)
-                    print(f"Scheduling request with metrics: {metrics}")
-                # this is a total hack till we update the py-scheduler to accept tensors 
-                # also, async sends a single prompt, which is why we can 0 index here
-                str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
-                sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
-                result = self.scheduler.run(request=sched_req_format, candidates=[ep for i, ep in self.endpoints.items()])
-                leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
-                    int(result[0].endpoint.name)
-                )
-            else:
-                # Determine the leader worker for the current data parallel shard
-                leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
-                    self.current_generate_dp_shard_idx
-                )
+            # if self.scheduler is not None:
+            #     for index in range(self.worker_group.dp_size):
+            #         worker_index = str(self.worker_group.get_dp_leader_worker_idx(index))
+            #         self.add_endpoint_if_not_exists(worker_index)
+            #         metrics = self.get_vllm_logger_metrics()
+            #         self.update_metrics(index, metrics)
+            #         print(f"Scheduling request with metrics: {metrics}")
+            #     # this is a total hack till we update the py-scheduler to accept tensors 
+            #     # also, async sends a single prompt, which is why we can 0 index here
+            #     str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
+            #     sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
+            #     result = self.scheduler.run(request=sched_req_format, candidates=[ep for i, ep in self.endpoints.items()])
+            #     leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
+            #         int(result[0].endpoint.name)
+            #     )
+            # else:
+            # Determine the leader worker for the current data parallel shard
+            leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
+                self.current_generate_dp_shard_idx
+            )
 
         # Run the async method on the selected leader worker
         worker_gen_proxy = self.worker_group.run_single_worker_single_data(
@@ -960,7 +957,6 @@ class VllmGeneration(GenerationInterface):
             "num_pending_samples": {},  # dp_idx -> list[int]
             "kv_cache_usage_perc": {},  # dp_idx -> list[float]
             "generation_tokens": {},  # dp_idx -> list[int]
-            "inter_token_latency_seconds": {},  # dp_idx -> list[float]
         }
 
         for dp_idx, stats in zip(dp_indices, results):
@@ -980,9 +976,6 @@ class VllmGeneration(GenerationInterface):
             generation_tokens = stats.get("generation_tokens")
             if generation_tokens:
                 vllm_logger_metrics["generation_tokens"][dp_idx] = generation_tokens
-            itl_value = stats.get("inter_token_latency_seconds")  
-            if itl_value:
-                vllm_logger_metrics["inter_token_latency_seconds"][dp_idx] = itl_value
 
         return vllm_logger_metrics
 

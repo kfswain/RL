@@ -883,10 +883,14 @@ def run_async_multi_turn_rollout(
         for i, sample_state in enumerate(sample_initial_states):
             print(f"Prepared initial state for sample {i}: task={sample_state['task_name']}")
         # Create tasks for all samples and run them concurrently
-        sample_tasks = [
-            run_single_sample_with_error_handling(i, sample_state, 0)
-            for i, sample_state in enumerate(sample_initial_states)
-        ]
+        sample_tasks = []
+        
+        for i, sample_state in enumerate(sample_initial_states):
+            task = run_single_sample_with_error_handling(i, sample_state, 0)
+            sample_tasks.append(task)
+            print(f"Kellen: {policy_generation.get_vllm_logger_metrics()}")
+            
+
 
         # Execute all sample rollouts concurrently
         sample_results = await asyncio.gather(*sample_tasks, return_exceptions=False)
