@@ -892,7 +892,7 @@ def run_async_multi_turn_rollout(
         sample_tasks = []
         
         for i, sample_state in enumerate(sample_initial_states):
-            print(f"sample state: {sample_state}; message log {sample_state["message_log"]}")
+            print(f"message log {sample_state['message_log']}")
             if policy_generation.scheduler is not None:
                 #str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
                 sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
