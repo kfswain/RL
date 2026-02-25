@@ -948,6 +948,8 @@ def run_async_multi_turn_rollout(
                     if result is None:
                         break
                     else:
+                        if trajectories[assigned_endpoints[idx].attributes["trajectory"]] is None:
+                            break
                         if len(trajectories[assigned_endpoints[idx].attributes["trajectory"]]) == 0:
                             # trajectory complete, clear it from the candidate list and any assigned endpoints
                             trajectories.pop(assigned_endpoints[idx].attributes["trajectory"])
@@ -955,6 +957,7 @@ def run_async_multi_turn_rollout(
                                 if e.attributes["trajectory"] == assigned_endpoints[idx].attributes["trajectory"]:
                                     e.attributes["trajectory"] = None
                             break
+
                         sample = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
                         task = run_single_sample_with_error_handling(i, sample, lw_idx=idx)
                         sample_tasks.append(task)
