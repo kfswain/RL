@@ -892,7 +892,11 @@ def run_async_multi_turn_rollout(
         sample_tasks = []
         
         for i, sample_state in enumerate(sample_initial_states):
-            print(f"message log {sample_state['message_log']}")
+            # We will assume grpo, so we can group each req together and fill up one worker at a time with each trajectory (but not the full trajectory if this is over the workers parallel limits; gathered emperically)
+            # When each worker is assigned a sample, we will run the full trajectory for that sample on that worker before moving to the next sample, to maximize the benefits of vLLM's context caching. This is not strictly necessary but should provide better performance.
+            # If there is no more additional unassigned trajectories, but a worker has capacity, we will pull from a sibling workers trajectory so that work is distributed more evenly across workers.
+            # This should reduce tail latency, and this hinges on the fact that we throttle requests, so that a worker is only working with a set batch and we are trying to keep a small buffer of pending requests.
+            # I don't expect us to significantly improve tput, but we should improve tail latency of the batch as a whole.
             if policy_generation.scheduler is not None:
                 #str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
                 sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
