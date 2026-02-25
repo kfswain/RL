@@ -617,6 +617,7 @@ class VllmGeneration(GenerationInterface):
         method_name: str,
         data_validation_fn,
         greedy: bool = False,
+        leader_worker_idx: int = -1,
     ) -> AsyncGenerator[tuple[int, BatchedDataDict[GenerationOutputSpec]], None]:
         """Base async generation method that handles common worker management logic.
 
@@ -643,27 +644,28 @@ class VllmGeneration(GenerationInterface):
         if not data_validation_fn(data):
             return
 
-        if self.scheduler is not None:
-            for index in range(self.worker_group.dp_size):
-                print("are we making it here?")
-                worker_index = str(self.worker_group.get_dp_leader_worker_idx(index))
-                self.add_endpoint_if_not_exists(worker_index)
-                metrics = self.get_vllm_logger_metrics()
-                self.update_metrics(index, metrics)
-                print(f"Scheduling request with metrics: {metrics}")
-            # this is a total hack till we update the py-scheduler to accept tensors 
-            # also, async sends a single prompt, which is why we can 0 index here
-            str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
-            sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
-            result = self.scheduler.run(request=sched_req_format, candidates=[ep for i, ep in self.endpoints.items()])
-            leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
-                int(result[0].endpoint.name)
-            )
-        else:
-            # Determine the leader worker for the current data parallel shard
-            leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
-                self.current_generate_dp_shard_idx
-            )
+        print(f"leader worer idx before scheduling: {leader_worker_idx}")
+        if leader_worker_idx == -1:
+            if self.scheduler is not None:
+                for index in range(self.worker_group.dp_size):
+                    worker_index = str(self.worker_group.get_dp_leader_worker_idx(index))
+                    self.add_endpoint_if_not_exists(worker_index)
+                    metrics = self.get_vllm_logger_metrics()
+                    self.update_metrics(index, metrics)
+                    print(f"Scheduling request with metrics: {metrics}")
+                # this is a total hack till we update the py-scheduler to accept tensors 
+                # also, async sends a single prompt, which is why we can 0 index here
+                str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
+                sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
+                result = self.scheduler.run(request=sched_req_format, candidates=[ep for i, ep in self.endpoints.items()])
+                leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
+                    int(result[0].endpoint.name)
+                )
+            else:
+                # Determine the leader worker for the current data parallel shard
+                leader_worker_idx = self.worker_group.get_dp_leader_worker_idx(
+                    self.current_generate_dp_shard_idx
+                )
 
         # Run the async method on the selected leader worker
         worker_gen_proxy = self.worker_group.run_single_worker_single_data(
@@ -781,7 +783,7 @@ class VllmGeneration(GenerationInterface):
             yield result
 
     async def generate_async(
-        self, data: BatchedDataDict[GenerationDatumSpec], greedy: bool = False
+        self, data: BatchedDataDict[GenerationDatumSpec], greedy: bool = False, lw_idx: int = -1
     ) -> AsyncGenerator[tuple[int, BatchedDataDict[GenerationOutputSpec]], None]:
         """Generate responses asynchronously, yielding individual samples as they complete.
 
@@ -799,7 +801,7 @@ class VllmGeneration(GenerationInterface):
             return True
 
         async for result in self._async_generate_base(
-            data, "generate_async", validate_generate_data, greedy
+            data, "generate_async", validate_generate_data, greedy, leader_worker_idx=lw_idx
         ):
             yield result
 

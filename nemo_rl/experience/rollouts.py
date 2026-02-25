@@ -133,6 +133,7 @@ async def generate_responses_async(
     input_lengths: torch.Tensor,
     include_logprobs: bool = True,
     greedy: bool = False,
+    lw_idx: int = -1,
 ) -> tuple[BatchedDataDict[DatumSpec], list[torch.Tensor], dict[str, float | int]]:
     """Async version of generate_responses that properly calls generate_async."""
     # Add stop_strings to generation_input_data if present in the batch
@@ -159,7 +160,7 @@ async def generate_responses_async(
         tuple[int, BatchedDataDict[GenerationOutputSpec]]
     ] = []
     async for original_idx, single_item_output in policy_generation.generate_async(
-        generation_input_data, greedy=greedy
+        generation_input_data, greedy=greedy, lw_idx=lw_idx
     ):
         collected_indexed_outputs.append((original_idx, single_item_output))
 
@@ -570,6 +571,7 @@ async def async_generate_response_for_sample_turn(
     tokenizer: TokenizerType,
     max_seq_len: int,
     greedy: bool = False,
+    lw_idx: int = -1,
 ) -> tuple[list[dict], torch.Tensor, torch.Tensor, dict[str, float]]:
     """Generate a response for a single sample's turn using async generation.
 
@@ -580,7 +582,7 @@ async def async_generate_response_for_sample_turn(
         tokenizer: Tokenizer to use
         max_seq_len: Maximum sequence length
         greedy: Whether to use greedy decoding
-
+        lw_idx: Leader worker index
     Returns:
         Tuple of (updated_message_log, generated_tokens, input_lengths, generation_metrics)
     """
@@ -621,6 +623,7 @@ async def async_generate_response_for_sample_turn(
         input_lengths=input_lengths,
         include_logprobs=True,
         greedy=greedy,
+        lw_idx=lw_idx,
     )
 
     # Extract results for the single sample
@@ -639,6 +642,7 @@ async def run_sample_multi_turn_rollout(
     max_seq_len: int,
     max_rollout_turns: int = 999999,
     greedy: bool = False,
+    lw_idx: int = -1,
 ) -> tuple[dict, dict[str, Any]]:
     """Run a multi-turn rollout for a single sample.
 
@@ -701,6 +705,7 @@ async def run_sample_multi_turn_rollout(
                 tokenizer,
                 max_seq_len,
                 greedy=greedy,
+                lw_idx=lw_idx,
             )
             current_message_log = updated_message_log
 
@@ -856,7 +861,7 @@ def run_async_multi_turn_rollout(
             sample_initial_states.append(sample_state)
 
         # Run all samples concurrently
-        async def run_single_sample_with_error_handling(i, sample_state):
+        async def run_single_sample_with_error_handling(i, sample_state, lw_idx=-1):
             """Wrapper to handle errors for individual sample rollouts."""
             try:
                 result = await run_sample_multi_turn_rollout(
@@ -868,6 +873,7 @@ def run_async_multi_turn_rollout(
                     max_seq_len=max_seq_len,
                     max_rollout_turns=max_rollout_turns,
                     greedy=greedy,
+                    lw_idx=lw_idx,
                 )
                 return result
             except Exception as e:
