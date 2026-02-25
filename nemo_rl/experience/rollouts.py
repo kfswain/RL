@@ -919,13 +919,13 @@ def run_async_multi_turn_rollout(
 
         while trajectories:
             # Scan if an endpoint needs a new trajectory assigned, and assign one if available
-            for ep, traj_prompt in assigned_endpoints.items():
+            for idx, ep in assigned_endpoints.items():
                 # Trajectory assignment logic:
                 if traj_prompt.attributes["trajectory"] is None and trajectories:
                     for traj_key in trajectories.keys():
                         if traj_key not in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
                             # assign a new trajectory to this endpoint
-                            assigned_endpoints[ep].attributes["trajectory"] = traj_key
+                            assigned_endpoints[idx].attributes["trajectory"] = traj_key
                             print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
                             break
                     if len(trajectories) < len(assigned_endpoints):
@@ -951,7 +951,7 @@ def run_async_multi_turn_rollout(
                                     e.attributes["trajectory"] = None
                             break
                         sample = trajectories[assigned_endpoints[ep].attributes["trajectory"]].pop(0)
-                        task = run_single_sample_with_error_handling(i, sample, lw_idx=ep.name)
+                        task = run_single_sample_with_error_handling(i, sample, lw_idx=idx)
                         sample_tasks.append(task)
             # refresh endpoint metrics now to ensure we hold off on backpressure
             # we wait 10ms to not hog the thread/lock to allow metrics to refresh
