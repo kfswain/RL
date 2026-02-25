@@ -645,6 +645,7 @@ class VllmGeneration(GenerationInterface):
 
         if self.scheduler is not None:
             for index in range(self.worker_group.dp_size):
+                print("are we making it here?")
                 worker_index = str(self.worker_group.get_dp_leader_worker_idx(index))
                 self.add_endpoint_if_not_exists(worker_index)
                 metrics = self.get_vllm_logger_metrics()
