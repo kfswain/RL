@@ -588,6 +588,29 @@ class VllmGeneration(GenerationInterface):
 
         return combined
 
+    def add_endpoint_if_not_exists(self, engine_idx: str):
+        if self.endpoints is not None and engine_idx not in self.endpoints:
+            print(f"Adding new endpoint for engine_idx {engine_idx}")
+            self.endpoints[engine_idx] = Endpoint(name=engine_idx)
+
+    def update_metrics(self, engine_idx: str, metrics: dict):
+        endpoint = self.endpoints[engine_idx]
+        updated = False
+        if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][int(engine_idx)]:
+            updated = True
+            endpoint.attributes["num_pending_samples"] = metrics["num_pending_samples"][int(engine_idx)]
+        if endpoint.attributes["kv_cache_usage_perc"] != metrics["kv_cache_usage_perc"][int(engine_idx)]:
+            updated = True
+            endpoint.attributes["kv_cache_usage_perc"] = metrics["kv_cache_usage_perc"][int(engine_idx)]
+        if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][int(engine_idx)]:
+            updated = True
+            endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][int(engine_idx)]
+        if endpoint.attributes["inter_token_latency_seconds"] != metrics["inter_token_latency_seconds"][int(engine_idx)]:
+            updated = True
+            endpoint.attributes["inter_token_latency_seconds"] = metrics["inter_token_latency_seconds"][int(engine_idx)]
+        if updated:
+            endpoint.attributes["requests_since_metric_update"] = 0
+
     async def _async_generate_base(
         self,
         data: BatchedDataDict[GenerationDatumSpec],
@@ -606,28 +629,6 @@ class VllmGeneration(GenerationInterface):
         Yields:
             Tuple of (original_index, BatchedDataDict containing generation result)
         """
-        def add_endpoint_if_not_exists(self, engine_idx: str):
-            if self.endpoints is not None and engine_idx not in self.endpoints:
-                print(f"Adding new endpoint for engine_idx {engine_idx}")
-                self.endpoints[engine_idx] = Endpoint(name=engine_idx)
-            
-        def update_metrics(self, engine_idx: str, metrics: dict):
-            endpoint = self.endpoints[engine_idx]
-            updated = False
-            if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][int(engine_idx)]:
-                updated = True
-                endpoint.attributes["num_pending_samples"] = metrics["num_pending_samples"][int(engine_idx)]
-            if endpoint.attributes["kv_cache_usage_perc"] != metrics["kv_cache_usage_perc"][int(engine_idx)]:
-                updated = True
-                endpoint.attributes["kv_cache_usage_perc"] = metrics["kv_cache_usage_perc"][int(engine_idx)]
-            if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][int(engine_idx)]:
-                updated = True
-                endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][int(engine_idx)]
-            if endpoint.attributes["inter_token_latency_seconds"] != metrics["inter_token_latency_seconds"][int(engine_idx)]:
-                updated = True
-                endpoint.attributes["inter_token_latency_seconds"] = metrics["inter_token_latency_seconds"][int(engine_idx)]
-            if updated:
-                endpoint.attributes["requests_since_metric_update"] = 0
 
         if not self.cfg["vllm_cfg"]["async_engine"]:
             raise RuntimeError(
