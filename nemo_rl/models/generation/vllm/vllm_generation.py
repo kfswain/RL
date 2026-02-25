@@ -606,12 +606,12 @@ class VllmGeneration(GenerationInterface):
         Yields:
             Tuple of (original_index, BatchedDataDict containing generation result)
         """
-        def add_endpoint_if_not_exists(engine_idx: str):
+        def add_endpoint_if_not_exists(self, engine_idx: str):
             if self.endpoints is not None and engine_idx not in self.endpoints:
                 print(f"Adding new endpoint for engine_idx {engine_idx}")
                 self.endpoints[engine_idx] = Endpoint(name=engine_idx)
             
-        def update_metrics(engine_idx: str, metrics: dict):
+        def update_metrics(self, engine_idx: str, metrics: dict):
             endpoint = self.endpoints[engine_idx]
             updated = False
             if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][int(engine_idx)]:
@@ -645,9 +645,9 @@ class VllmGeneration(GenerationInterface):
         if self.scheduler is not None:
             for index in range(self.worker_group.dp_size):
                 worker_index = str(self.worker_group.get_dp_leader_worker_idx(index))
-                add_endpoint_if_not_exists(worker_index)
+                self.add_endpoint_if_not_exists(worker_index)
                 metrics = self.get_vllm_logger_metrics()
-                update_metrics(index, metrics)
+                self.update_metrics(index, metrics)
                 print(f"Scheduling request with metrics: {metrics}")
             # this is a total hack till we update the py-scheduler to accept tensors 
             # also, async sends a single prompt, which is why we can 0 index here
