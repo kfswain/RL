@@ -914,9 +914,9 @@ def run_async_multi_turn_rollout(
         for i, sample_state in enumerate(sample_initial_states):
             key = sample_state['message_log'][0]['content']
             if key not in trajectories:
-                trajectories[key] = [sample_state]
+                trajectories[key] = [(sample_state, i)]
             else:
-                trajectories[key].append(sample_state)
+                trajectories[key].append((sample_state, i))
         print(f"Trajectory count {len(trajectories)}")
         assigned_endpoints = {}
         for i in range(policy_generation.worker_group.dp_size):
@@ -958,6 +958,7 @@ def run_async_multi_turn_rollout(
                                     e.attributes["trajectory"] = None
                             break
                         sample = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
+                        # NEED TO UPDATE THIS, THE INDEX HERE IS INCORRECT
                         task = run_single_sample_with_error_handling(i, sample, lw_idx=idx)
                         sample_tasks.append(task)
             # refresh endpoint metrics now to ensure we hold off on backpressure
