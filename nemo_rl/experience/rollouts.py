@@ -818,7 +818,7 @@ async def run_sample_multi_turn_rollout(
     return final_sample_state, sample_metrics
 
 def update_metrics(idx, endpoint: Endpoint, metrics: dict):
-    updated = False
+    updated = True
     
     if idx in metrics["num_pending_samples"] and endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][idx][-1]:
         updated = True
