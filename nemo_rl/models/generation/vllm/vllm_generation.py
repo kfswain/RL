@@ -645,12 +645,8 @@ class VllmGeneration(GenerationInterface):
 
         if self.scheduler is not None:
             for index in range(self.worker_group.dp_size):
-                print("are we making it here?")
                 worker_index = str(self.worker_group.get_dp_leader_worker_idx(index))
                 self.add_endpoint_if_not_exists(worker_index)
-                metrics = self.get_vllm_logger_metrics()
-                self.update_metrics(index, metrics)
-                print(f"Scheduling request with metrics: {metrics}")
             # this is a total hack till we update the py-scheduler to accept tensors 
             # also, async sends a single prompt, which is why we can 0 index here
             str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())

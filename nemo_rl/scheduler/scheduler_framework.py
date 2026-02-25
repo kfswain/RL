@@ -20,7 +20,7 @@ from typing import (
 
 class NemoRequestScheduler:
     def __init__(self):
-        prefix_profile = SchedulerProfile(name="ray_example").with_filters(QueueDepthFilter()).with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(BlindForthPicker())
+        prefix_profile = SchedulerProfile(name="ray_example").with_filters(QueueDepthFilter()).with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(MaxScorePicker())
         config = SchedulerConfig(profile_handler=SingleProfileHandler(), profiles={
             prefix_profile.name: prefix_profile
         })
