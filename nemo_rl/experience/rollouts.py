@@ -26,7 +26,7 @@ from typing import Any, Optional
 
 import ray
 import torch
-from time import sleep
+from time import sleep, time
 from transformers import PreTrainedTokenizerBase
 from wandb import Histogram, Table
 
@@ -819,6 +819,7 @@ async def run_sample_multi_turn_rollout(
 
 def update_metrics(idx, endpoint: Endpoint, metrics: dict):
     updated = False
+    print(f"Endpoint {endpoint.name} - Current metrics: pending_samples={metrics["num_pending_samples"][idx][-1]}, kv_cache_usage={metrics["kv_cache_usage_perc"][idx][-1]}%, generation_tokens={metrics["generation_tokens"][idx][-1]}")
     if endpoint.attributes["num_pending_samples"] != metrics["num_pending_samples"][idx][-1]:
         updated = True
         endpoint.attributes["num_pending_samples"] = metrics["num_pending_samples"][idx][-1]
@@ -828,6 +829,10 @@ def update_metrics(idx, endpoint: Endpoint, metrics: dict):
     if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][idx][-1]:
         updated = True
         endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][idx][-1]
+    if time.time() - endpoint.attributes["last_updated"] > 3:
+        #something is wrong with the metrics, force refresh to continue allowing dispatch
+        updated = True
+        endpoint.attributes["last_updated"] = time.time()
     if updated:
         endpoint.attributes["requests_since_metric_update"] = 0
 
@@ -915,7 +920,7 @@ def run_async_multi_turn_rollout(
         print(f"Trajectory count {len(trajectories)}")
         assigned_endpoints = {}
         for i in range(policy_generation.worker_group.dp_size):
-            assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0})
+            assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0, "last_updated": time.time()})
 
         while trajectories:
             # Scan if an endpoint needs a new trajectory assigned, and assign one if available
@@ -957,7 +962,6 @@ def run_async_multi_turn_rollout(
             # we wait 10ms to not hog the thread/lock to allow metrics to refresh
             sleep(0.005)
             metrics = policy_generation.get_vllm_logger_metrics()
-            print(f"Scheduler loop: endpoint metrics: {metrics}")
             for idx, ep in assigned_endpoints.items():
                 update_metrics(idx, ep, metrics)
 
