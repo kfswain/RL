@@ -261,7 +261,6 @@ class VllmAsyncGenerationWorker(BaseVllmGenerationWorker):
                 "num_pending_samples": copy.deepcopy(self.num_pending_samples),
                 "kv_cache_usage_perc": copy.deepcopy(self.kv_cache_usage_perc),
                 "generation_tokens": copy.deepcopy(self.generation_tokens),
-                "inter_token_latency_seconds": copy.deepcopy(self.inter_token_latency_seconds),
             }
         return metric
 
