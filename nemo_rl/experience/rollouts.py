@@ -829,7 +829,7 @@ def update_metrics(idx, endpoint: Endpoint, metrics: dict):
     if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][idx][-1]:
         updated = True
         endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][idx][-1]
-    if time.time() - endpoint.attributes["last_updated"] > 3:
+    if time.time() - endpoint.attributes["last_updated"] > 1:
         #something is wrong with the metrics, force refresh to continue allowing dispatch
         updated = True
         endpoint.attributes["last_updated"] = time.time()
