@@ -919,56 +919,57 @@ def run_async_multi_turn_rollout(
             assigned_endpoints = {}
             for i in range(policy_generation.worker_group.dp_size):
                 assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0, "last_updated": time.time()})
+                print(f"Initialized endpoint {i} with attributes {assigned_endpoints[i].attributes}")
             
-            async with asyncio.TaskGroup() as tg:
-                # Create tasks for all samples and run them concurrently
-                while len(trajectories) > 0:
-                    # Scan if an endpoint needs a new trajectory assigned, and assign one if available, otherwise dispatch it up.
-                    for idx, ep in assigned_endpoints.items():
-                        # Trajectory assignment logic
-                        if ep.attributes["trajectory"] is None and len(trajectories) > 0:
-                            if len(trajectories) < len(assigned_endpoints):
-                                #we are wrapping up trajectories, help a sibling
-                                for ep in assigned_endpoints.values():
-                                    if ep.attributes["trajectory"] is not None and ep.attributes["trajectory"] in trajectories:
-                                        # assign this trajectory to the now free endpoint
-                                        assigned_endpoints[idx].attributes["trajectory"] = ep.attributes["trajectory"]
-                                        break
+            # async with asyncio.TaskGroup() as tg:
+            #     # Create tasks for all samples and run them concurrently
+            #     while len(trajectories) > 0:
+            #         # Scan if an endpoint needs a new trajectory assigned, and assign one if available, otherwise dispatch it up.
+            #         for idx, ep in assigned_endpoints.items():
+            #             # Trajectory assignment logic
+            #             if ep.attributes["trajectory"] is None and len(trajectories) > 0:
+            #                 if len(trajectories) < len(assigned_endpoints):
+            #                     #we are wrapping up trajectories, help a sibling
+            #                     for ep in assigned_endpoints.values():
+            #                         if ep.attributes["trajectory"] is not None and ep.attributes["trajectory"] in trajectories:
+            #                             # assign this trajectory to the now free endpoint
+            #                             assigned_endpoints[idx].attributes["trajectory"] = ep.attributes["trajectory"]
+            #                             break
 
-                            for traj_key in trajectories.keys():
-                                if traj_key in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
-                                    continue
-                                else:
-                                    # assign a new trajectory to this endpoint
-                                    assigned_endpoints[idx].attributes["trajectory"] = traj_key
-                                    print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
-                                    break
+            #                 for traj_key in trajectories.keys():
+            #                     if traj_key in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
+            #                         continue
+            #                     else:
+            #                         # assign a new trajectory to this endpoint
+            #                         assigned_endpoints[idx].attributes["trajectory"] = traj_key
+            #                         print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
+            #                         break
 
-                    for idx, ep in assigned_endpoints.items():    
-                        #dispatch samples from the assigned trajectory until we hit backpressure, then move to the next endpoint and repeat
-                        while True:
-                            sched_req_format = LLMRequest(request_id="1", body=ep.attributes["trajectory"], target_model=None)
-                            result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
-                            if result is None:
-                                break
-                            else:
-                                if ep.attributes["trajectory"] is None or ep.attributes["trajectory"] not in trajectories:
-                                    break
-                                if ep.attributes["trajectory"] is not None and  len(trajectories[ep.attributes["trajectory"]]) == 0:
-                                    # trajectory complete, clear it from the candidate list and any assigned endpoints
-                                    del trajectories[ep.attributes["trajectory"]]
-                                    for e in assigned_endpoints.values():
-                                        if e.attributes["trajectory"] == ep.attributes["trajectory"]:
-                                            e.attributes["trajectory"] = None
-                                    break
-                                (sample, sample_index) = trajectories[ep.attributes["trajectory"]].pop(0)
-                                sample_tasks.append(tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx)))
-                    # refresh endpoint metrics now to ensure we hold off on backpressure
-                    # we wait 10ms to not hog the thread/lock to allow metrics to refresh
-                    time.sleep(0.005)
-                    metrics = policy_generation.get_vllm_logger_metrics()
-                    for idx, ep in assigned_endpoints.items():
-                        update_metrics(idx, ep, metrics)
+            #         for idx, ep in assigned_endpoints.items():    
+            #             #dispatch samples from the assigned trajectory until we hit backpressure, then move to the next endpoint and repeat
+            #             while True:
+            #                 sched_req_format = LLMRequest(request_id="1", body=ep.attributes["trajectory"], target_model=None)
+            #                 result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
+            #                 if result is None:
+            #                     break
+            #                 else:
+            #                     if ep.attributes["trajectory"] is None or ep.attributes["trajectory"] not in trajectories:
+            #                         break
+            #                     if ep.attributes["trajectory"] is not None and  len(trajectories[ep.attributes["trajectory"]]) == 0:
+            #                         # trajectory complete, clear it from the candidate list and any assigned endpoints
+            #                         del trajectories[ep.attributes["trajectory"]]
+            #                         for e in assigned_endpoints.values():
+            #                             if e.attributes["trajectory"] == ep.attributes["trajectory"]:
+            #                                 e.attributes["trajectory"] = None
+            #                         break
+            #                     (sample, sample_index) = trajectories[ep.attributes["trajectory"]].pop(0)
+            #                     sample_tasks.append(tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx)))
+            #         # refresh endpoint metrics now to ensure we hold off on backpressure
+            #         # we wait 10ms to not hog the thread/lock to allow metrics to refresh
+            #         time.sleep(0.005)
+            #         metrics = policy_generation.get_vllm_logger_metrics()
+            #         for idx, ep in assigned_endpoints.items():
+            #             update_metrics(idx, ep, metrics)
 
             sample_results = [task.result() for task in sample_tasks]
 
