@@ -605,9 +605,6 @@ class VllmGeneration(GenerationInterface):
         if endpoint.attributes["generation_tokens"] != metrics["generation_tokens"][int(engine_idx)]:
             updated = True
             endpoint.attributes["generation_tokens"] = metrics["generation_tokens"][int(engine_idx)]
-        if endpoint.attributes["inter_token_latency_seconds"] != metrics["inter_token_latency_seconds"][int(engine_idx)]:
-            updated = True
-            endpoint.attributes["inter_token_latency_seconds"] = metrics["inter_token_latency_seconds"][int(engine_idx)]
         if updated:
             endpoint.attributes["requests_since_metric_update"] = 0
 
@@ -954,7 +951,6 @@ class VllmGeneration(GenerationInterface):
             "num_pending_samples": {},  # dp_idx -> list[int]
             "kv_cache_usage_perc": {},  # dp_idx -> list[float]
             "generation_tokens": {},  # dp_idx -> list[int]
-            "inter_token_latency_seconds": {},  # dp_idx -> list[float]
         }
 
         for dp_idx, stats in zip(dp_indices, results):
@@ -974,9 +970,6 @@ class VllmGeneration(GenerationInterface):
             generation_tokens = stats.get("generation_tokens")
             if generation_tokens:
                 vllm_logger_metrics["generation_tokens"][dp_idx] = generation_tokens
-            itl_value = stats.get("inter_token_latency_seconds")  
-            if itl_value:
-                vllm_logger_metrics["inter_token_latency_seconds"][dp_idx] = itl_value
 
         return vllm_logger_metrics
 
