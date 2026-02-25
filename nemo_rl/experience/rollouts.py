@@ -26,7 +26,7 @@ from typing import Any, Optional
 
 import ray
 import torch
-from time import sleep, time
+import time
 from transformers import PreTrainedTokenizerBase
 from wandb import Histogram, Table
 
