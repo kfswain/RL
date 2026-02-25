@@ -641,7 +641,6 @@ class VllmGeneration(GenerationInterface):
         if not data_validation_fn(data):
             return
 
-        print(f"leader worer idx before scheduling: {leader_worker_idx}")
         if leader_worker_idx == -1:
             # if self.scheduler is not None:
             #     for index in range(self.worker_group.dp_size):

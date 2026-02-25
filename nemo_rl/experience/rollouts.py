@@ -886,7 +886,7 @@ def run_async_multi_turn_rollout(
         sample_tasks = []
         
         for i, sample_state in enumerate(sample_initial_states):
-            task = run_single_sample_with_error_handling(i, sample_state, 0)
+            task = run_single_sample_with_error_handling(i, sample_state)
             sample_tasks.append(task)
             print(f"Kellen: {policy_generation.get_vllm_logger_metrics()}")
             
