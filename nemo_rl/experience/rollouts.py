@@ -50,6 +50,8 @@ from nemo_rl.models.generation.interfaces import (
     GenerationOutputSpec,
 )
 from nemo_rl.utils.timer import Timer
+from scheduling.types import Endpoint, LLMRequest
+
 
 TokenizerType = PreTrainedTokenizerBase
 
@@ -844,6 +846,10 @@ def run_async_multi_turn_rollout(
             - Dictionary of rollout metrics
     """
 
+    endpoints = []
+    for i in range(policy_generation.worker_group.dp_size):
+        endpoints.append(Endpoint(name=i))
+
     async def _async_rollout_implementation():
         """Internal async implementation."""
         batch_size = len(input_batch["message_log"])
@@ -886,9 +892,15 @@ def run_async_multi_turn_rollout(
         sample_tasks = []
         
         for i, sample_state in enumerate(sample_initial_states):
-            task = run_single_sample_with_error_handling(i, sample_state)
+            print(f"sample state: {sample_state}; message log {sample_state["message_log"]}")
+            if policy_generation.scheduler is not None:
+                #str_tokens = ''.join(str(token) for token in data["input_ids"][0].tolist())
+                sched_req_format = LLMRequest(request_id="1", body=str_tokens, target_model=None)
+                result = policy_generation.scheduler.run(request=sched_req_format, candidates=endpoints)
+                print(f"Scheduler result for sample {i}: {result}")
+            task = run_single_sample_with_error_handling(i, sample_state,)
             sample_tasks.append(task)
-            print(f"Kellen: {policy_generation.get_vllm_logger_metrics()}")
+            
             
 
 
