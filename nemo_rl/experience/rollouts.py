@@ -904,6 +904,7 @@ def run_async_multi_turn_rollout(
             except Exception as e:
                 raise RuntimeError(f"Error in sample {i} rollout: {e}") from e
 
+        sample_tasks = []
         sample_results = []
 
         if policy_generation.scheduler is not None:
@@ -911,7 +912,6 @@ def run_async_multi_turn_rollout(
                 for i, sample_state in enumerate(sample_initial_states):
                     print(f"Prepared initial state for sample {i}: task={sample_state['task_name']}")
                 # Create tasks for all samples and run them concurrently
-                sample_tasks = []
                 
                 trajectories = {}
                 for i, sample_state in enumerate(sample_initial_states):
@@ -961,7 +961,7 @@ def run_async_multi_turn_rollout(
                                             e.attributes["trajectory"] = None
                                     break
                                 (sample, sample_index) = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
-                                tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx))
+                                sample_tasks.append(tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx)))
                     # refresh endpoint metrics now to ensure we hold off on backpressure
                     # we wait 10ms to not hog the thread/lock to allow metrics to refresh
                     time.sleep(0.005)
@@ -969,8 +969,7 @@ def run_async_multi_turn_rollout(
                     for idx, ep in assigned_endpoints.items():
                         update_metrics(idx, ep, metrics)
 
-
-                sample_results = tg.results()    
+            sample_results = [task.result() for task in sample_tasks]
 
             # my brain is exhausted but basically i just need to assign these dang trajectories to endpoints
             # once the first set is assigned its just managing the queue depth on the worker
