@@ -993,7 +993,12 @@ def run_async_multi_turn_rollout(
             # This should reduce tail latency, and this hinges on the fact that we throttle requests, so that a worker is only working with a set batch and we are trying to keep a small buffer of pending requests.
             # I don't expect us to significantly improve tput, but we should improve tail latency of the batch as a whole.
             
-        else:        
+        else:
+            # Create tasks for all samples and run them concurrently
+            sample_tasks = [
+                run_single_sample_with_error_handling(i, sample_state)
+                for i, sample_state in enumerate(sample_initial_states)
+            ]
             # Execute all sample rollouts concurrently
             sample_results = await asyncio.gather(*sample_tasks, return_exceptions=False)
 
