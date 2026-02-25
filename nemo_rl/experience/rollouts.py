@@ -962,7 +962,6 @@ def run_async_multi_turn_rollout(
                                     break
                                 (sample, sample_index) = trajectories[assigned_endpoints[idx].attributes["trajectory"]].pop(0)
                                 tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx))
-                                sample_tasks.append(task)
                     # refresh endpoint metrics now to ensure we hold off on backpressure
                     # we wait 10ms to not hog the thread/lock to allow metrics to refresh
                     time.sleep(0.005)
