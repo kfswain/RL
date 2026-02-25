@@ -884,7 +884,7 @@ def run_async_multi_turn_rollout(
             print(f"Prepared initial state for sample {i}: task={sample_state['task_name']}")
         # Create tasks for all samples and run them concurrently
         sample_tasks = [
-            run_single_sample_with_error_handling(i, sample_state)
+            run_single_sample_with_error_handling(i, sample_state, 0)
             for i, sample_state in enumerate(sample_initial_states)
         ]
 
