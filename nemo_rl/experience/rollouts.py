@@ -921,7 +921,7 @@ def run_async_multi_turn_rollout(
             # Scan if an endpoint needs a new trajectory assigned, and assign one if available
             for idx, ep in assigned_endpoints.items():
                 # Trajectory assignment logic:
-                if traj_prompt.attributes["trajectory"] is None and trajectories:
+                if ep.attributes["trajectory"] is None and trajectories:
                     for traj_key in trajectories.keys():
                         if traj_key not in [e.attributes["trajectory"] for e in assigned_endpoints.values()]:
                             # assign a new trajectory to this endpoint
@@ -930,10 +930,10 @@ def run_async_multi_turn_rollout(
                             break
                     if len(trajectories) < len(assigned_endpoints):
                         #we are wrapping up trajectories, help a sibling
-                        for traj_prompt in assigned_endpoints.values():
-                            if traj_prompt is not None and traj_prompt.attributes["trajectory"] in trajectories:
+                        for ep in assigned_endpoints.values():
+                            if ep.attributes["trajectory"] is not None and ep.attributes["trajectory"] in trajectories:
                                 # assign this trajectory to the now free endpoint
-                                assigned_endpoints[ep].attributes["trajectory"] = traj_prompt.attributes["trajectory"]
+                                assigned_endpoints[ep].attributes["trajectory"] = ep.attributes["trajectory"]
                                 break
                 
                 while True:
