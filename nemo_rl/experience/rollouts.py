@@ -944,35 +944,32 @@ def run_async_multi_turn_rollout(
                                     assigned_endpoints[idx].attributes["trajectory"] = traj_key
                                     print(f"Assigned trajectory with prompt '{traj_key}' to endpoint {ep}")
                                     break
-                    trajectories = {}
-                for idx, ep in assigned_endpoints.items():
-                    print(f"Endpoint {idx} assigned trajectory '{ep.attributes['trajectory']}' with attributes {ep.attributes} and name {ep.name}")
 
-            #         for idx, ep in assigned_endpoints.items():    
-            #             #dispatch samples from the assigned trajectory until we hit backpressure, then move to the next endpoint and repeat
-            #             while True:
-            #                 sched_req_format = LLMRequest(request_id="1", body=ep.attributes["trajectory"], target_model=None)
-            #                 result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
-            #                 if result is None:
-            #                     break
-            #                 else:
-            #                     if ep.attributes["trajectory"] is None or ep.attributes["trajectory"] not in trajectories:
-            #                         break
-            #                     if ep.attributes["trajectory"] is not None and  len(trajectories[ep.attributes["trajectory"]]) == 0:
-            #                         # trajectory complete, clear it from the candidate list and any assigned endpoints
-            #                         del trajectories[ep.attributes["trajectory"]]
-            #                         for e in assigned_endpoints.values():
-            #                             if e.attributes["trajectory"] == ep.attributes["trajectory"]:
-            #                                 e.attributes["trajectory"] = None
-            #                         break
-            #                     (sample, sample_index) = trajectories[ep.attributes["trajectory"]].pop(0)
-            #                     sample_tasks.append(tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=idx)))
-            #         # refresh endpoint metrics now to ensure we hold off on backpressure
-            #         # we wait 10ms to not hog the thread/lock to allow metrics to refresh
-            #         time.sleep(0.005)
-            #         metrics = policy_generation.get_vllm_logger_metrics()
-            #         for idx, ep in assigned_endpoints.items():
-            #             update_metrics(idx, ep, metrics)
+                    for idx, ep in assigned_endpoints.items():    
+                        #dispatch samples from the assigned trajectory until we hit backpressure, then move to the next endpoint and repeat
+                        while True:
+                            sched_req_format = LLMRequest(request_id="1", body=ep.attributes["trajectory"], target_model=None)
+                            result = policy_generation.scheduler.run(request=sched_req_format, candidates=[ep])
+                            if result is None:
+                                break
+                            else:
+                                if ep.attributes["trajectory"] is None or ep.attributes["trajectory"] not in trajectories:
+                                    break
+                                if ep.attributes["trajectory"] is not None and  len(trajectories[ep.attributes["trajectory"]]) == 0:
+                                    # trajectory complete, clear it from the candidate list and any assigned endpoints
+                                    del trajectories[ep.attributes["trajectory"]]
+                                    for e in assigned_endpoints.values():
+                                        if e.attributes["trajectory"] == ep.attributes["trajectory"]:
+                                            e.attributes["trajectory"] = None
+                                    break
+                                (sample, sample_index) = trajectories[ep.attributes["trajectory"]].pop(0)
+                                sample_tasks.append(tg.create_task(run_single_sample_with_error_handling(sample_index, sample, lw_idx=3)))
+                    # refresh endpoint metrics now to ensure we hold off on backpressure
+                    # we wait 10ms to not hog the thread/lock to allow metrics to refresh
+                    time.sleep(0.005)
+                    metrics = policy_generation.get_vllm_logger_metrics()
+                    for idx, ep in assigned_endpoints.items():
+                        update_metrics(idx, ep, metrics)
 
             sample_results = [task.result() for task in sample_tasks]
 
