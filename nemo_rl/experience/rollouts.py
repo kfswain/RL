@@ -915,8 +915,8 @@ def run_async_multi_turn_rollout(
         print(f"Trajectory count {len(trajectories)}")
         assigned_endpoints = {}
         for i in range(policy_generation.worker_group.dp_size):
-            assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0})
-
+            assigned_endpoints[i] = Endpoint(name=i, attributes={"trajectory": None, "requests_since_metric_update": 0, "num_pending_samples": 0, "kv_cache_usage_perc": 0.0, "generation_tokens": 0})
+        
         while trajectories:
             # Scan if an endpoint needs a new trajectory assigned, and assign one if available
             for idx, ep in assigned_endpoints.items():
