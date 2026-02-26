@@ -290,12 +290,15 @@ data:
 
   # dataset
   train:
-    dataset_name: OpenMathInstruct-2
+    dataset_name: togethercomputer/CoderForge-Preview
     split_validation_size: 0.05 # use 5% of the training data as validation data
     seed: ${grpo.seed} # seed for train/validation split when split_validation_size > 0
   validation: null
   # default settings for all datasets
   default:
+    dataset_name: ResponseDataset
+    input_key: input
+    output_key: output
     prompt_file: null
     system_prompt_file: null
     processor: "math_hf_data_processor"
