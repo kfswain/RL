@@ -77,7 +77,11 @@ class StaleEndpointFilter(FilterPlugin):
 class QueueDepthFilter(FilterPlugin):
     def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Mapping[str, Endpoint]) -> Mapping[str, Endpoint]:
         # filter out endpoints with queue depth > 10
+        filtered_endpoints = {}
         for idx, ep in endpoints.items():
-            print(f"QueueDepthFilter: Endpoints after {ep}")
-        filtered_endpoints = endpoints
+            if "num_pending_samples" not in ep.attributes:
+                #dont filter if the data doesnt exist
+                filtered_endpoints[idx] = ep
+            elif ep.attributes["num_pending_samples"] < 5:
+                filtered_endpoints[idx] = ep
         return filtered_endpoints
