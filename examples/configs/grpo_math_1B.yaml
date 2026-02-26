@@ -4,7 +4,7 @@ grpo:
   num_generations_per_prompt: 32
   max_rollout_turns: 1 # for multi-turn rollouts. Math Environments just have 1 turn (answering the question)
   max_num_epochs: 1
-  max_num_steps: 5
+  max_num_steps: 20
   normalize_rewards: true
   use_leave_one_out_baseline: true
   val_period: 10
@@ -80,7 +80,7 @@ checkpointing:
   save_consolidated: false
 
 policy:
-  model_name: "Qwen/Qwen2.5-1.5B"
+  model_name: "Qwen/Qwen2.5-32B"
   tokenizer:
     name: ${policy.model_name} ## specify if you'd like to use a tokenizer different from the model's default
     chat_template_kwargs: null # can be used to pass kwargs to the chat template, e.g., enable_thinking=true
