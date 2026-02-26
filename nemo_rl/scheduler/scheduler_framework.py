@@ -32,7 +32,6 @@ class NemoRequestScheduler:
         profile_name = scheduler_output.primary_profile_name
         profile_results = scheduler_output.profile_results.get(profile_name)
 
-        print(f"Kellen test!! Profile {profile_name} results: {profile_results}")
         selected_endpoint = profile_results.endpoint_list[:1]
         
         # This is in lieu of the PreRequest hook point. Which should be added, but getting something functional for now
@@ -65,7 +64,6 @@ class BlindForthPicker(PickerPlugin):
         num_to_remove = len(scored_endpoints) // 4
         for _ in range(num_to_remove):
             scored_endpoints.pop(random.randint(0, len(scored_endpoints) - 1))
-        print(f"BlindForthPicker: Remaining endpoints after removing 25%: {[se.endpoint for se in scored_endpoints]}")
         return max(scored_endpoints, key=lambda se: se.score)
 
 class StaleEndpointFilter(FilterPlugin):
