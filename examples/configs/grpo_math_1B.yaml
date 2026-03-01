@@ -89,7 +89,7 @@ policy:
   train_micro_batch_size: 4
   generation_batch_size: 32 # Only used when generating using HF backend
   logprob_batch_size: ${policy.train_micro_batch_size}
-  max_total_sequence_length: 512
+  max_total_sequence_length: 16,384
   precision: "bfloat16"
   logprob_chunk_size: null
   offload_optimizer_for_logprob: false # Only useful for non-colocated generation since colocated generation will always offload optimizer to cuda before refit
@@ -147,9 +147,10 @@ policy:
     moe_shared_expert_overlap: false
 
     optimizer:
-      optimizer: "adam"
-      lr: 5.0e-6
+      optimizer: "AdamW"
+      lr: 3e-7
       min_lr: 5.0e-7
+      total_iters: 13
       weight_decay: 0.01
       bf16: true
       fp16: false
@@ -196,13 +197,13 @@ policy:
   # See docs/design-docs/sequence-packing-and-dynamic-batching.md 
   # for more details on dynamic batching and sequence packing.
   dynamic_batching:
-    enabled: False
+    enabled: True
     train_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.train_micro_batch_size}}
     logprob_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.logprob_batch_size}}
     sequence_length_round: 64
 
   sequence_packing:
-    enabled: True
+    enabled: False
     train_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.train_micro_batch_size}}
     logprob_mb_tokens: ${mul:${policy.max_total_sequence_length}, ${policy.logprob_batch_size}}
     algorithm: "modified_first_fit_decreasing"
@@ -290,7 +291,7 @@ data:
 
   # dataset
   train:
-    data_path: togethercomputer/CoderForge-Preview
+    data_path: openai/gsm8k
     split_validation_size: 0.05 # use 5% of the training data as validation data
     seed: ${grpo.seed} # seed for train/validation split when split_validation_size > 0
   validation: null
@@ -334,7 +335,7 @@ env:
 logger:
   log_dir: "logs"  # Base directory for all logs
   num_val_samples_to_print: 0 # Number of validation samples to pretty print on terminal
-  wandb_enabled: false
+  wandb_enabled: True
   tensorboard_enabled: false
   mlflow_enabled: false  # Disable MLflow logging
   swanlab_enabled: false # Disable SwanLab logging
