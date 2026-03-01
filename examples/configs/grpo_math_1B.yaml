@@ -80,7 +80,7 @@ checkpointing:
   save_consolidated: false
 
 policy:
-  model_name: "Qwen/Qwen2.5-1.5B"
+  model_name: "Qwen/Qwen2.5-32B"
   tokenizer:
     name: ${policy.model_name} ## specify if you'd like to use a tokenizer different from the model's default
     chat_template_kwargs: null # can be used to pass kwargs to the chat template, e.g., enable_thinking=true
@@ -335,7 +335,7 @@ env:
 logger:
   log_dir: "logs"  # Base directory for all logs
   num_val_samples_to_print: 0 # Number of validation samples to pretty print on terminal
-  wandb_enabled: True
+  wandb_enabled: False
   tensorboard_enabled: false
   mlflow_enabled: false  # Disable MLflow logging
   swanlab_enabled: false # Disable SwanLab logging
