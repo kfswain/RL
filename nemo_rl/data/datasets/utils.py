@@ -82,7 +82,7 @@ def load_dataset_from_path(data_path: str, data_split: Optional[str] = "train"):
         raw_dataset = load_dataset(dataset_type, data_files=data_path)
     else:
         try:
-            raw_dataset = load_dataset(data_path)
+            raw_dataset = load_dataset(data_path, 'main')
         except ValueError as e:
             if "load_from_disk" in str(e):
                 raw_dataset = load_from_disk(data_path)
