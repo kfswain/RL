@@ -41,8 +41,8 @@ class ResponseDataset(RawDataset):
     def __init__(
         self,
         data_path: str,
-        input_key: str = "input",
-        output_key: str = "output",
+        input_key: str = "question",
+        output_key: str = "answer",
         split: Optional[str] = None,
         split_validation_size: float = 0,
         seed: int = 42,
