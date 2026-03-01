@@ -48,8 +48,8 @@ class ResponseDataset(RawDataset):
         seed: int = 42,
         **kwargs,
     ):
-        self.input_key = "question"
-        self.output_key = "answer"
+        self.input_key = input_key
+        self.output_key = output_key
 
         self.task_name = "-".join(data_path.split("/")[-2:]).split(".")[0]
         if self.task_name[0] == "-":
