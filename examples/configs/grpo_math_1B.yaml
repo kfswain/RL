@@ -89,7 +89,7 @@ policy:
   train_micro_batch_size: 4
   generation_batch_size: 32 # Only used when generating using HF backend
   logprob_batch_size: ${policy.train_micro_batch_size}
-  max_total_sequence_length: 512
+  max_total_sequence_length: 16384
   precision: "bfloat16"
   logprob_chunk_size: null
   offload_optimizer_for_logprob: false # Only useful for non-colocated generation since colocated generation will always offload optimizer to cuda before refit
@@ -216,7 +216,7 @@ policy:
   optimizer:
     name: "torch.optim.AdamW"
     kwargs:
-      lr: 5.0e-6
+      lr: 3e-7
       weight_decay: 0.01
       betas: [0.9, 0.999]
       eps: 1e-8
@@ -290,15 +290,17 @@ data:
 
   # dataset
   train:
-    dataset_name: OpenMathInstruct-2
+    dataset_name: ResponseDataset
+    data_path: openai/gsm8k
+    subset: 'main'
     split_validation_size: 0.05 # use 5% of the training data as validation data
     seed: ${grpo.seed} # seed for train/validation split when split_validation_size > 0
   validation: null
   # default settings for all datasets
   default:
     #dataset_name: ResponseDataset
-    #input_key: question
-    #output_key: answer
+    input_key: question
+    output_key: answer
     prompt_file: null
     system_prompt_file: null
     processor: "math_hf_data_processor"
