@@ -89,7 +89,7 @@ policy:
   train_micro_batch_size: 4
   generation_batch_size: 32 # Only used when generating using HF backend
   logprob_batch_size: ${policy.train_micro_batch_size}
-  max_total_sequence_length: 8192
+  max_total_sequence_length: 16384
   precision: "bfloat16"
   logprob_chunk_size: null
   offload_optimizer_for_logprob: false # Only useful for non-colocated generation since colocated generation will always offload optimizer to cuda before refit
@@ -147,7 +147,7 @@ policy:
     moe_shared_expert_overlap: false
 
     optimizer:
-      optimizer: "AdamW"
+      optimizer: "adam"
       lr: 3e-7
       min_lr: 5.0e-7
       total_iters: 13
