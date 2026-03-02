@@ -148,9 +148,8 @@ policy:
 
     optimizer:
       optimizer: "adam"
-      lr: 3e-7
+      lr: 5.0e-6
       min_lr: 5.0e-7
-      total_iters: 13
       weight_decay: 0.01
       bf16: true
       fp16: false
