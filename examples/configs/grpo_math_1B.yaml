@@ -86,7 +86,7 @@ policy:
     chat_template_kwargs: null # can be used to pass kwargs to the chat template, e.g., enable_thinking=true
   hf_config_overrides: {} 
   train_global_batch_size: 512
-  train_micro_batch_size: 4
+  train_micro_batch_size: 1
   generation_batch_size: 32 # Only used when generating using HF backend
   logprob_batch_size: ${policy.train_micro_batch_size}
   max_total_sequence_length: 16384
