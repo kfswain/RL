@@ -20,7 +20,7 @@ from typing import (
 
 class NemoRequestScheduler:
     def __init__(self):
-        prefix_profile = SchedulerProfile(name="ray_example").with_filters(StaleEndpointFilter()).with_filters(QueueDepthFilter()).with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(MaxScorePicker())
+        prefix_profile = SchedulerProfile(name="ray_example").with_filters(StaleEndpointFilter()).with_filters(KVUtilFilter()).with_filters(QueueDepthFilter()).with_scorers(WeightedScorer(PrefixCacheScorer(), 1.0)).with_picker(MaxScorePicker())
         config = SchedulerConfig(profile_handler=SingleProfileHandler(), profiles={
             prefix_profile.name: prefix_profile
         })
@@ -75,6 +75,8 @@ class StaleEndpointFilter(FilterPlugin):
         return filtered_endpoints
 
 class QueueDepthFilter(FilterPlugin):
+    def __init__(self, queue_depth_threshold: int = 10):
+        self.queue_depth_threshold = queue_depth_threshold
     def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Mapping[str, Endpoint]) -> Mapping[str, Endpoint]:
         # filter out endpoints with queue depth > 10
         filtered_endpoints = {}
@@ -82,6 +84,20 @@ class QueueDepthFilter(FilterPlugin):
             if "num_pending_samples" not in ep.attributes:
                 #dont filter if the data doesnt exist
                 filtered_endpoints[idx] = ep
-            elif ep.attributes["num_pending_samples"] < 5:
+            elif ep.attributes["num_pending_samples"] < self.queue_depth_threshold:
+                filtered_endpoints[idx] = ep
+        return filtered_endpoints
+    
+class KVUtilFilter(FilterPlugin):
+    def __init__(self, kv_util_threshold: float = 0.75):
+        self.kv_util_threshold = kv_util_threshold
+
+    def filter(self, cycle_state: CycleState, request: LLMRequest, endpoints: Mapping[str, Endpoint]) -> Mapping[str, Endpoint]:
+        filtered_endpoints = {}
+        for idx, ep in endpoints.items():
+            if "kv_cache_usage_perc" not in ep.attributes:
+                #dont filter if the data doesnt exist
+                filtered_endpoints[idx] = ep
+            elif ep.attributes["kv_cache_usage_perc"] < self.kv_util_threshold:
                 filtered_endpoints[idx] = ep
         return filtered_endpoints
