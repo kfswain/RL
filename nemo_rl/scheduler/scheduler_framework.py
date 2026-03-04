@@ -38,7 +38,6 @@ class NemoRequestScheduler:
         if len(selected_endpoint) > 0:
             self.pre_request(request, selected_endpoint[0].endpoint, profile_name)
             return selected_endpoint  # pick top 1
-        print("No endpoint selected")
         return None
 
     def pre_request(self, request: LLMRequest, selected_endpoint: Endpoint, profile_name: str):

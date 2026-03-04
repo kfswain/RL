@@ -833,7 +833,7 @@ def update_metrics(idx, endpoint: Endpoint, metrics: dict):
         endpoint.attributes["requests_since_metric_update"] = 0
         endpoint.attributes["last_updated"] = time.time()
 
-    if time.time() - endpoint.attributes["last_updated"] > 15:
+    if time.time() - endpoint.attributes["last_updated"] > 7:
         print(f"Endpoint {endpoint.name} has not been updated for 15 seconds. Forcing metric refresh.")
         #something is wrong with the metrics, force refresh to continue allowing dispatch
         endpoint.attributes["last_updated"] = time.time()
