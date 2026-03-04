@@ -80,7 +80,7 @@ checkpointing:
   save_consolidated: false
 
 policy:
-  model_name: "Qwen/Qwen2.5-1.5B"
+  model_name: "Qwen/Qwen2.5-32B"
   tokenizer:
     name: ${policy.model_name} ## specify if you'd like to use a tokenizer different from the model's default
     chat_template_kwargs: null # can be used to pass kwargs to the chat template, e.g., enable_thinking=true
@@ -89,7 +89,7 @@ policy:
   train_micro_batch_size: 1
   generation_batch_size: 32 # Only used when generating using HF backend
   logprob_batch_size: 1
-  max_total_sequence_length: 512
+  max_total_sequence_length: 16384
   precision: "bfloat16"
   logprob_chunk_size: null
   offload_optimizer_for_logprob: false # Only useful for non-colocated generation since colocated generation will always offload optimizer to cuda before refit
