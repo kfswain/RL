@@ -42,7 +42,6 @@ class NemoRequestScheduler:
         return None
 
     def pre_request(self, request: LLMRequest, selected_endpoint: Endpoint, profile_name: str):
-        print(selected_endpoint)
         scorer = self.scheduler.profiles[profile_name].scorers[0].scorer
         selected_endpoint.attributes["requests_since_metric_update"] += 1
         if isinstance(scorer, PrefixCacheScorer) and request.body is not None:
