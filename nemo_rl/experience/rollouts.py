@@ -909,6 +909,7 @@ def run_async_multi_turn_rollout(
 
         sample_tasks = []
         sample_results = []
+        batched_results = []
 
         if policy_generation.scheduler is not None:
             trajectories = {}
@@ -977,42 +978,31 @@ def run_async_multi_turn_rollout(
                         update_metrics(idx, ep, metrics)
 
             sample_results = [task.result() for task in sample_tasks]
-
-            # my brain is exhausted but basically i just need to assign these dang trajectories to endpoints
-            # once the first set is assigned its just managing the queue depth on the worker
-            # once a trajectory is exhausted pop it
-            # scheduler is used as a queue depth checker essentially, and if multiple workers are available it can use the prefix routing to pick one, but thats a micro optimization
-
-            # one more time before bed: 
-            # 1. initial saturation; each ep gets a single traj (track backpressure to know when to dispatch new samples from the same traj)
-            # 2. as trajs complete, assign new ones to the now free eps (we _try_ to focus on a single traj at a time to avoid using kv-space for prefill tokens, but thats imperfect as a worker has capacity and a traj has ended)
-            # 3. Using backpressure lets us take into account the variant length of the sample(s), so we always dispatch a new traj to the most recently available worker
-            # 4. if no new trajs, assign sibling trajs to keep workers busy until all trajs are done (if 2 workers are busy and 2 are free, probably better to split them up)
-            # Why is this better than RR? B/C we take into account backpressure and assign the new traj _as its available_, and then when all trajs are empty, they divide and conquer
-            # to chew throught the remaining queue. Nemo RR doesnt even batch by traj, but rr implies you fire all requests off at once and you could have inconsistent results (i.e. all the long trajs end up on a single worker, causing hella tail latency)
-
-            # We will assume grpo, so we can group each req together and fill up one worker at a time with each trajectory (but not the full trajectory if this is over the workers parallel limits; gathered emperically)
-            # When each worker is assigned a sample, we will run the full trajectory for that sample on that worker before moving to the next sample, to maximize the benefits of vLLM's context caching. This is not strictly necessary but should provide better performance.
-            # If there is no more additional unassigned trajectories, but a worker has capacity, we will pull from a sibling workers trajectory so that work is distributed more evenly across workers.
-            # This should reduce tail latency, and this hinges on the fact that we throttle requests, so that a worker is only working with a set batch and we are trying to keep a small buffer of pending requests.
-            # I don't expect us to significantly improve tput, but we should improve tail latency of the batch as a whole.
             
         else:
             # Create tasks for all samples and run them concurrently
-            sample_tasks = [
-                run_single_sample_with_error_handling(i, sample_state)
-                for i, sample_state in enumerate(sample_initial_states)
-            ]
-            # Execute all sample rollouts concurrently
-            sample_results = await asyncio.gather(*sample_tasks, return_exceptions=False)
+            sample_tasks = []
+            for i, sample_state in enumerate(sample_initial_states):
+                sample_tasks.append(run_single_sample_with_error_handling(i, sample_state))
+                # I'm affixing my test case to the 2048 shaped batch, so pausing 16 times
+                if (i + 1) % 128 == 0:
+                    results = await asyncio.gather(*sample_tasks, return_exceptions=False)
+                    batched_results.append(results)
+                    sample_tasks = []
+            #shouldnt happen but just in case we have leftover tasks after the loop, gather them as well
+            if len(sample_tasks) > 0:
+                results = await asyncio.gather(*sample_tasks, return_exceptions=False)
+                batched_results.append(results)
+            
 
         # Process results
         final_sample_states = []
         all_sample_metrics = []
 
-        for final_state, sample_metrics in sample_results:
-            final_sample_states.append(final_state)
-            all_sample_metrics.append(sample_metrics)
+        for results in batched_results:
+            for final_state, sample_metrics in results:
+                final_sample_states.append(final_state)
+                all_sample_metrics.append(sample_metrics)
 
         # Reconstruct batch from sample results
         batch_size = len(final_sample_states)

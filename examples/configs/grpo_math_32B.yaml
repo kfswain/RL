@@ -89,7 +89,7 @@ policy:
   train_micro_batch_size: 1
   generation_batch_size: 32 # Only used when generating using HF backend
   logprob_batch_size: 1
-  max_total_sequence_length: 8192 #16384
+  max_total_sequence_length: 16384
   precision: "bfloat16"
   logprob_chunk_size: null
   offload_optimizer_for_logprob: false # Only useful for non-colocated generation since colocated generation will always offload optimizer to cuda before refit
@@ -239,7 +239,7 @@ policy:
 
   generation:
     backend: "vllm"
-    scheduler: "enabled"
+    scheduler: "disabled"
     max_new_tokens: ${policy.max_total_sequence_length}
     temperature: 1.0
     top_p: 1.0
